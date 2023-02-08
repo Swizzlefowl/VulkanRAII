@@ -1,8 +1,12 @@
-#include <iostream>
-#include <vulkan/vulkan_raii.hpp>
-#include <GLFW/glfw3.h>
-int main()
-{
-    std::cout << "Hello World!\n";
-}
+#include "Renderer.h"
 
+int main() {
+    Renderer app{};
+    try {
+        app.run();
+    } catch (const std::exception& except) {
+        std::cout << except.what();
+        return 1;
+    }
+    return 0;
+}
