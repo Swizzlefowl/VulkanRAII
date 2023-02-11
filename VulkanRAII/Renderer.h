@@ -1,17 +1,16 @@
 #ifndef RENDERER_H
 #define RENDERER_H
+#include "QueueFamilyIndices.h"
 #include <exception>
 #include <iostream>
-#include <vector>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <utility>
+#include <vector>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #include <GLFW/glfw3.h>
-#include "QueueFamilyIndices.h"
-#include "Device.h"
 
 // clang formats puts the glfw include above the vulkan include which breaks the program
 // remeber to put it in the correct place after formatting
@@ -37,12 +36,15 @@ class Renderer {
     const int width{1280};
     const int height{720};
 
-    Device device;
     std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
+    const std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     VkDebugUtilsMessengerEXT callback{};
     vk::raii::Context context{};
     vk::raii::Instance instance{nullptr};
     vk::raii::SurfaceKHR surface{nullptr};
+    vk::raii::PhysicalDevices m_physicalDevices{nullptr};
+    vk::raii::PhysicalDevice m_physicalDevice{nullptr};
+    vk::raii::Device m_device{nullptr};
 
   public:
     Renderer();
@@ -56,6 +58,11 @@ class Renderer {
     void initVulkan();
     void createInstance();
     void createSurface();
+    void createDevice();
+    void pickPhysicalDevice();
+    bool isDeviceSuitable(vk::raii::PhysicalDevice device);
+    bool checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device);
+    QueueFamilyIndices findQueueFamilies(vk::raii::PhysicalDevice device);
     void mainLoop();
 
     // functions for debugging
