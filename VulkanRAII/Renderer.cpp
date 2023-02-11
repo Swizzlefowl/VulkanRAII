@@ -2,10 +2,14 @@
 
 void Renderer::run() {
     initWindow();
-    createInstance();
-    listExtensionNames();
-    setupDebugCallback();
+    initVulkan();
     mainLoop();
+}
+
+vk::raii::PhysicalDevices Renderer::getPhyDevices() {
+    vk::raii::PhysicalDevices devices{instance};
+
+    return devices;
 }
 
 void Renderer::initWindow() {
@@ -14,6 +18,19 @@ void Renderer::initWindow() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     window = glfwCreateWindow(width, height, "hello Vulkan", nullptr, nullptr);
+}
+
+const vk::SurfaceKHR* Renderer::getSurface() {
+    const vk::SurfaceKHR* surfacePtr{&(*surface)};
+    return surfacePtr;
+}
+
+void Renderer::initVulkan() {
+    createInstance();
+    createSurface();
+    device.createDevice(getPhyDevices(), getSurface());
+    setupDebugCallback();
+    listExtensionNames();
 }
 
 void Renderer::createInstance() {
@@ -94,6 +111,14 @@ void Renderer::mainLoop() {
         glfwPollEvents();
 }
 
+void Renderer::createSurface() {
+    VkSurfaceKHR c_surface{};
+    if (glfwCreateWindowSurface(*instance, window, nullptr, &c_surface) != VK_SUCCESS)
+        throw std::runtime_error("failed to create a surface!");
+    surface = vk::raii::SurfaceKHR{
+        instance, c_surface};
+}
+
 // I really dont know how it works but it works
 void Renderer::setupDebugCallback() {
     if (!debug)
@@ -129,9 +154,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debugCallback(VkDebugUtilsMessageSeveri
 Renderer::~Renderer() {
     glfwDestroyWindow(window);
     glfwTerminate();
-
+    
     if (debug)
         DestroyDebugUtilsMessengerEXT(*instance, callback, nullptr);
+}
+
+Renderer::Renderer() {
 }
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pCallback) {
