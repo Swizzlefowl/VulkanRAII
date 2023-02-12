@@ -1,17 +1,5 @@
-#ifndef RENDERER_H
-#define RENDERER_H
-#include "QueueFamilyIndices.h"
-#include <exception>
-#include <iostream>
-#include <memory>
-#include <optional>
-#include <set>
-#include <utility>
-#include <vector>
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_raii.hpp>
-#include <GLFW/glfw3.h>
-
+#pragma once
+#include "commonIncludes.h"
 // clang formats puts the glfw include above the vulkan include which breaks the program
 // remeber to put it in the correct place after formatting
 
@@ -35,29 +23,29 @@ class Renderer {
     GLFWwindow* window;
     const int width{1280};
     const int height{720};
-
-    std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
-    const std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    VkDebugUtilsMessengerEXT callback{};
-    vk::raii::Context context{};
-    vk::raii::Instance instance{nullptr};
-    vk::raii::SurfaceKHR surface{nullptr};
+    // just a note to myself member variables are destroyed at the reverse order
+    //  of declaration
+    vk::raii::Context m_context{};
+    vk::raii::Instance m_instance{nullptr};
     vk::raii::PhysicalDevices m_physicalDevices{nullptr};
     vk::raii::PhysicalDevice m_physicalDevice{nullptr};
     vk::raii::Device m_device{nullptr};
+    std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    //  member variables for debugging
+    std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
+    VkDebugUtilsMessengerEXT callback{};
+    friend class PresentationEngine;
+    PresentationEngine* pEngine{nullptr};
 
   public:
     Renderer();
-    void run();
-    vk::raii::PhysicalDevices getPhyDevices();
+    void run(PresentationEngine* engine);
     ~Renderer();
-    const vk::SurfaceKHR* getSurface();
 
   private:
     void initWindow();
     void initVulkan();
     void createInstance();
-    void createSurface();
     void createDevice();
     void pickPhysicalDevice();
     bool isDeviceSuitable(vk::raii::PhysicalDevice device);
@@ -76,4 +64,3 @@ class Renderer {
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData);
 };
-#endif

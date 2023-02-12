@@ -138,9 +138,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PresentationEngine.cpp" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="commonIncludes.h" />
+    <ClInclude Include="PresentationEngine.h" />
     <ClInclude Include="QueueFamilyIndices.h" />
     <ClInclude Include="Renderer.h" />
   </ItemGroup>

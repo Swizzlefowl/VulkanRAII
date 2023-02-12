@@ -21,12 +21,21 @@
     <ClCompile Include="Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PresentationEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="QueueFamilyIndices.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PresentationEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commonIncludes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

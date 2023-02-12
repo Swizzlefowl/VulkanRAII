@@ -1,15 +1,10 @@
 #include "Renderer.h"
-
-void Renderer::run() {
+#include "PresentationEngine.h"
+void Renderer::run(PresentationEngine* engine) {
+    pEngine = engine;
     initWindow();
     initVulkan();
     mainLoop();
-}
-
-vk::raii::PhysicalDevices Renderer::getPhyDevices() {
-    vk::raii::PhysicalDevices devices{instance};
-
-    return devices;
 }
 
 void Renderer::initWindow() {
@@ -20,16 +15,10 @@ void Renderer::initWindow() {
     window = glfwCreateWindow(width, height, "hello Vulkan", nullptr, nullptr);
 }
 
-const vk::SurfaceKHR* Renderer::getSurface() {
-    const vk::SurfaceKHR* surfacePtr{&(*surface)};
-    return surfacePtr;
-}
-
 void Renderer::initVulkan() {
     createInstance();
-    createSurface();
+    pEngine->createSurface();
     createDevice();
-    // device.createDevice(getPhyDevices(), getSurface());
     setupDebugCallback();
     listExtensionNames();
 }
@@ -37,7 +26,7 @@ void Renderer::initVulkan() {
 void Renderer::createInstance() {
     if (debug && !checkValidationLayersSupport())
         throw std::runtime_error("validation layers requested, but not available!");
-
+    
     vk::ApplicationInfo appInfo{
         "hello triangle",
         1,
@@ -55,7 +44,7 @@ void Renderer::createInstance() {
         createInfo.ppEnabledLayerNames = validationLayers.data();
     }
     try {
-        instance = context.createInstance(createInfo);
+        m_instance = m_context.createInstance(createInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create an instance");
     }
@@ -77,9 +66,9 @@ std::vector<const char*> Renderer::getRequiredExtensions() {
 }
 
 void Renderer::createDevice() {
-    m_physicalDevices = vk::raii::PhysicalDevices(instance);
+    m_physicalDevices = vk::raii::PhysicalDevices(m_instance);
     pickPhysicalDevice();
-
+  
     QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice);
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos{};
@@ -120,7 +109,7 @@ void Renderer::createDevice() {
 bool Renderer::checkValidationLayersSupport() {
     uint32_t layerCount{};
     std::vector<vk::LayerProperties> availableLayers{
-        context.enumerateInstanceLayerProperties()};
+        m_context.enumerateInstanceLayerProperties()};
     // the loop will compare every string from the queried layers with our
     // required layer
     for (const char* layerName : validationLayers) {
@@ -139,8 +128,8 @@ bool Renderer::checkValidationLayersSupport() {
 
 void Renderer::listExtensionNames() {
     std::vector<vk::ExtensionProperties> extensions{
-        context.enumerateInstanceExtensionProperties()};
-    std::vector<vk::LayerProperties> layers{context.enumerateInstanceLayerProperties()};
+        m_context.enumerateInstanceExtensionProperties()};
+    std::vector<vk::LayerProperties> layers{m_context.enumerateInstanceLayerProperties()};
 
     for (auto& extension : extensions)
         std::cout << extension.extensionName << '\n';
@@ -151,14 +140,6 @@ void Renderer::listExtensionNames() {
 void Renderer::mainLoop() {
     while (!glfwWindowShouldClose(window))
         glfwPollEvents();
-}
-
-void Renderer::createSurface() {
-    VkSurfaceKHR c_surface{};
-    if (glfwCreateWindowSurface(*instance, window, nullptr, &c_surface) != VK_SUCCESS)
-        throw std::runtime_error("failed to create a surface!");
-    surface = vk::raii::SurfaceKHR{
-        instance, c_surface};
 }
 
 // I really dont know how it works but it works
@@ -179,7 +160,7 @@ void Renderer::setupDebugCallback() {
     // NOTE: reinterpret_cast is also used by vulkan.hpp internally for all these
     // structs
     if (CreateDebugUtilsMessengerEXT(
-            *instance,
+            *m_instance,
             reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(
                 &createInfo),
             nullptr, &callback)
@@ -206,13 +187,10 @@ void Renderer::pickPhysicalDevice() {
 bool Renderer::checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device) {
     std::vector<vk::ExtensionProperties> availableExtensions{
         device.enumerateDeviceExtensionProperties()};
+    for (auto& extension : availableExtensions)
+        std::cout << extension.extensionName << '\n';
 
-    for (auto& ext : availableExtensions)
-
-        std::cout << ext.extensionName << '\n';
-    std::set<std::string> requiredExtensions{deviceExtensions.begin(),
-        deviceExtensions.end()};
-
+    std::set<std::string> requiredExtensions{deviceExtensions.begin(), deviceExtensions.end()};
     for (const auto& extension : availableExtensions)
         requiredExtensions.erase(extension.extensionName);
 
@@ -229,7 +207,7 @@ QueueFamilyIndices Renderer::findQueueFamilies(vk::raii::PhysicalDevice device) 
     for (auto& queueProperty : queueProperties) {
         if (queueProperty.queueFlags & vk::QueueFlagBits::eGraphics)
             indices.graphicsFamily = index;
-        presentSupport = device.getSurfaceSupportKHR(index, *surface);
+        presentSupport = device.getSurfaceSupportKHR(index, *pEngine->m_surface);
         if (presentSupport)
             indices.presentFamily = index;
         if (indices.isComplete())
@@ -250,11 +228,15 @@ bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device) {
 }
 
 Renderer::~Renderer() {
+    m_physicalDevice.clear();
+    m_physicalDevices.clear();
+    m_device.clear();
+    pEngine->m_surface.clear();
+    if (debug)
+        DestroyDebugUtilsMessengerEXT(*m_instance, callback, nullptr);
+    m_instance.clear();
     glfwDestroyWindow(window);
     glfwTerminate();
-
-    if (debug)
-        DestroyDebugUtilsMessengerEXT(*instance, callback, nullptr);
 }
 
 Renderer::Renderer() {
