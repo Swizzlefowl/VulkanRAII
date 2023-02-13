@@ -25,6 +25,8 @@ class Renderer {
     const int height{720};
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
+    friend class PresentationEngine;
+    PresentationEngine* pEngine{nullptr};
     vk::raii::Context m_context{};
     vk::raii::Instance m_instance{nullptr};
     vk::raii::PhysicalDevices m_physicalDevices{nullptr};
@@ -34,8 +36,9 @@ class Renderer {
     //  member variables for debugging
     std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
     VkDebugUtilsMessengerEXT callback{};
-    friend class PresentationEngine;
-    PresentationEngine* pEngine{nullptr};
+    vk::raii::Queue m_queue{nullptr};
+    
+   
 
   public:
     Renderer();
@@ -46,11 +49,11 @@ class Renderer {
     void initWindow();
     void initVulkan();
     void createInstance();
+    uint32_t getQueueFamilyIndex();
     void createDevice();
     void pickPhysicalDevice();
     bool isDeviceSuitable(vk::raii::PhysicalDevice device);
     bool checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device);
-    QueueFamilyIndices findQueueFamilies(vk::raii::PhysicalDevice device);
     void mainLoop();
 
     // functions for debugging

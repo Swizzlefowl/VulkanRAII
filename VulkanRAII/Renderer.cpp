@@ -19,6 +19,7 @@ void Renderer::initVulkan() {
     createInstance();
     pEngine->createSurface();
     createDevice();
+    pEngine->createSwapchain();
     setupDebugCallback();
     listExtensionNames();
 }
@@ -26,7 +27,7 @@ void Renderer::initVulkan() {
 void Renderer::createInstance() {
     if (debug && !checkValidationLayersSupport())
         throw std::runtime_error("validation layers requested, but not available!");
-    
+
     vk::ApplicationInfo appInfo{
         "hello triangle",
         1,
@@ -50,6 +51,19 @@ void Renderer::createInstance() {
     }
 }
 
+uint32_t Renderer::getQueueFamilyIndex() {
+    std::vector<vk::QueueFamilyProperties> queueFamilies{
+        m_physicalDevice.getQueueFamilyProperties()};
+
+    uint32_t queueFamilyIndex{0};
+    for (auto& queueFamily : queueFamilies)
+        if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics && m_physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, *pEngine->m_surface))
+            break;
+        else
+            queueFamilyIndex++;
+    return queueFamilyIndex;
+}
+
 // functions to get all the required extensions for glfw to create a surface
 std::vector<const char*> Renderer::getRequiredExtensions() {
     uint32_t glfwExtensionCount = 0;
@@ -68,27 +82,18 @@ std::vector<const char*> Renderer::getRequiredExtensions() {
 void Renderer::createDevice() {
     m_physicalDevices = vk::raii::PhysicalDevices(m_instance);
     pickPhysicalDevice();
-  
-    QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice);
-
-    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos{};
-    std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
-        indices.presentFamily.value()};
+    auto queueFamilyIndex = getQueueFamilyIndex();
     float queuePriority = 1.0f;
 
-    for (uint32_t queueFamily : uniqueQueueFamilies) {
-        vk::DeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfos.push_back(queueCreateInfo);
-    }
+    vk::DeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+    queueCreateInfo.queueCount = 1;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
 
     vk::PhysicalDeviceFeatures deviceFeatures{};
-
     vk::DeviceCreateInfo createInfo{};
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -104,6 +109,7 @@ void Renderer::createDevice() {
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create logical device");
     }
+    m_queue = m_device.getQueue(queueFamilyIndex, 0);
 }
 
 bool Renderer::checkValidationLayersSupport() {
@@ -197,30 +203,8 @@ bool Renderer::checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device) {
     return requiredExtensions.empty();
 }
 
-QueueFamilyIndices Renderer::findQueueFamilies(vk::raii::PhysicalDevice device) {
-    QueueFamilyIndices indices;
-    std::vector<vk::QueueFamilyProperties> queueProperties{
-        device.getQueueFamilyProperties()};
-    vk::Bool32 presentSupport{false};
-
-    int index{};
-    for (auto& queueProperty : queueProperties) {
-        if (queueProperty.queueFlags & vk::QueueFlagBits::eGraphics)
-            indices.graphicsFamily = index;
-        presentSupport = device.getSurfaceSupportKHR(index, *pEngine->m_surface);
-        if (presentSupport)
-            indices.presentFamily = index;
-        if (indices.isComplete())
-            break;
-        index++;
-    }
-    return indices;
-}
-
 bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device) {
     vk::PhysicalDeviceProperties deviceProperties{device.getProperties()};
-    QueueFamilyIndices indices{
-        findQueueFamilies(device)};
     bool extensionSupported{
         checkDeviceExtensionSuppport(device)};
 
@@ -228,6 +212,7 @@ bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device) {
 }
 
 Renderer::~Renderer() {
+    pEngine->m_swapChain.clear();
     m_physicalDevice.clear();
     m_physicalDevices.clear();
     m_device.clear();
