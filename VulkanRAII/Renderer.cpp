@@ -1,6 +1,6 @@
 #include "Renderer.h"
-#include "PresentationEngine.h"
 #include "Graphics.h"
+#include "PresentationEngine.h"
 
 void Renderer::run(PresentationEngine* engine, Graphics* Graphics) {
     pEngine = engine;
@@ -25,6 +25,7 @@ void Renderer::initVulkan() {
     pEngine->createSwapchain();
     pEngine->createImageViews();
     pGraphics->createRenderPass();
+    pGraphics->createGraphicsPipeline();
     setupDebugCallback();
     listExtensionNames();
 }
@@ -62,6 +63,7 @@ uint32_t Renderer::getQueueFamilyIndex() {
 
     uint32_t queueFamilyIndex{0};
     for (auto& queueFamily : queueFamilies)
+        // remember to do a bitwise and operation
         if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics && m_physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, *pEngine->m_surface))
             break;
         else
@@ -212,7 +214,7 @@ bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device) {
     vk::PhysicalDeviceProperties deviceProperties{device.getProperties()};
     bool extensionSupported{
         checkDeviceExtensionSuppport(device)};
- 
+
     return deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && extensionSupported;
 }
 

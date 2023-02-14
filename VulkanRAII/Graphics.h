@@ -6,6 +6,7 @@ class Renderer;
 class Graphics {
   private:
     Renderer& m_renderer;
+    vk::raii::ShaderModule createShaderModules(const std::string& fileName);
 
   public:
     vk::raii::RenderPass renderPass{nullptr};
@@ -14,6 +15,5 @@ class Graphics {
 
     Graphics(Renderer& renderer);
     void createGraphicsPipeline();
-    void createShaderModules();
     void createRenderPass();
 };

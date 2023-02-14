@@ -7,6 +7,7 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
+#include <string>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #include <GLFW/glfw3.h>
