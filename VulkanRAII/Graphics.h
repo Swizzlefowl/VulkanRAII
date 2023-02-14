@@ -8,8 +8,12 @@ class Graphics {
     Renderer& m_renderer;
 
   public:
-    vk::raii::Pipeline GraphicsPipeline{nullptr};
     vk::raii::RenderPass renderPass{nullptr};
+    vk::raii::PipelineLayout pipelineLayout{nullptr};
+    vk::raii::Pipeline graphicsPipeline{nullptr};
 
     Graphics(Renderer& renderer);
+    void createGraphicsPipeline();
+    void createShaderModules();
+    void createRenderPass();
 };

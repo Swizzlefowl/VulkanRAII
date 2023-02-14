@@ -24,6 +24,7 @@ void Renderer::initVulkan() {
     createDevice();
     pEngine->createSwapchain();
     pEngine->createImageViews();
+    pGraphics->createRenderPass();
     setupDebugCallback();
     listExtensionNames();
 }
