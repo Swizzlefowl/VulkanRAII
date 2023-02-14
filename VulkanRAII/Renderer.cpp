@@ -1,7 +1,10 @@
 #include "Renderer.h"
 #include "PresentationEngine.h"
-void Renderer::run(PresentationEngine* engine) {
+#include "Graphics.h"
+
+void Renderer::run(PresentationEngine* engine, Graphics* Graphics) {
     pEngine = engine;
+    pGraphics = Graphics;
     initWindow();
     initVulkan();
     mainLoop();

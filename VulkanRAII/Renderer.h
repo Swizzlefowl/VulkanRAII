@@ -19,14 +19,13 @@ class Renderer {
 #else
     const bool debug = true;
 #endif //
-
+    friend class PresentationEngine;
+    friend class Graphics;
     GLFWwindow* window;
     const int width{1280};
     const int height{720};
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
-    friend class PresentationEngine;
-    PresentationEngine* pEngine{nullptr};
     vk::raii::Context m_context{};
     vk::raii::Instance m_instance{nullptr};
     vk::raii::PhysicalDevices m_physicalDevices{nullptr};
@@ -37,12 +36,14 @@ class Renderer {
     std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
     VkDebugUtilsMessengerEXT callback{};
     vk::raii::Queue m_queue{nullptr};
+    PresentationEngine* pEngine{nullptr};
+    Graphics* pGraphics{nullptr};
     
    
 
   public:
     Renderer();
-    void run(PresentationEngine* engine);
+    void run(PresentationEngine* engine, Graphics* Graphics);
     ~Renderer();
 
   private:

@@ -137,12 +137,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PresentationEngine.cpp" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="commonIncludes.h" />
+    <ClInclude Include="Graphics.h" />
     <ClInclude Include="PresentationEngine.h" />
     <ClInclude Include="Renderer.h" />
   </ItemGroup>
