@@ -43,6 +43,33 @@ vk::Extent2D PresentationEngine::chooseSwapExtend(const vk::SurfaceCapabilitiesK
     return vk::Extent2D();
 }
 
+void PresentationEngine::createImageViews() {
+    std::vector<vk::Image> images = m_swapChain.getImages();
+
+    for (auto& image : images) {
+        vk::ImageViewCreateInfo createInfo{};
+        createInfo.image = image;
+        createInfo.format = swapChainImagesFormat;
+        createInfo.viewType = vk::ImageViewType::e2D;
+        vk::ComponentMapping mappings{
+            vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
+            vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity};
+        createInfo.components = mappings;
+
+        // base	MipmapLevel = 0, levelcount = 1, baseArrayLayer = 0, layerCount
+        // =
+        // 1
+        vk::ImageSubresourceRange imageSubResource{vk::ImageAspectFlagBits::eColor,
+            0, 1, 0, 1};
+        createInfo.subresourceRange = imageSubResource;
+        try {
+            swapChainImageViews.push_back(m_renderer.m_device.createImageView(createInfo));
+        } catch (vk::SystemError& err) {
+            throw std::runtime_error("failed to create image views");
+        }
+    }
+}
+
 PresentationEngine::PresentationEngine(Renderer& renderer)
     : m_renderer{renderer} {
 }

@@ -13,9 +13,13 @@ class PresentationEngine {
     vk::raii::SwapchainKHR m_swapChain{nullptr};
     vk::Format swapChainImagesFormat{};
     vk::Extent2D swapChainExtent{};
+    std::vector<vk::raii::ImageView> swapChainImageViews{};
+    std::vector<vk::raii::Framebuffer> frameBuffers{};
+
     PresentationEngine(Renderer& renderer);
     void createSurface();
     void createSwapchain();
+    void createImageViews();
 
   private:
     Renderer& m_renderer;

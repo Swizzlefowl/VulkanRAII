@@ -23,6 +23,7 @@ void Renderer::initVulkan() {
     pEngine->createSurface();
     createDevice();
     pEngine->createSwapchain();
+    pEngine->createImageViews();
     setupDebugCallback();
     listExtensionNames();
 }
@@ -210,7 +211,7 @@ bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device) {
     vk::PhysicalDeviceProperties deviceProperties{device.getProperties()};
     bool extensionSupported{
         checkDeviceExtensionSuppport(device)};
-
+ 
     return deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && extensionSupported;
 }
 
