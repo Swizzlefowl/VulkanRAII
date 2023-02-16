@@ -271,8 +271,23 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debugCallback(VkDebugUtilsMessageSeveri
 }
 
 void Renderer::pickPhysicalDevice() {
+    if (m_physicalDevices.size() == 1) {
+        m_physicalDevice = m_physicalDevices[0];
+        return;
+    }
+    vk::PhysicalDeviceType deviceType{};
+    int getUserDevice{0};
+
+    std::cout << "Select your preferred GPU\n";
+    std::cin >> getUserDevice;
+
+    if (getUserDevice == 1)
+        deviceType = vk::PhysicalDeviceType::eIntegratedGpu;
+    if (getUserDevice == 2)
+        deviceType = vk::PhysicalDeviceType::eDiscreteGpu;
+
     for (const auto& device : m_physicalDevices) {
-        if (isDeviceSuitable(device)) {
+        if (isDeviceSuitable(device, deviceType)) {
             m_physicalDevice = device;
             std::cout << m_physicalDevice.getProperties().deviceName << '\n';
             break;
@@ -293,12 +308,12 @@ bool Renderer::checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device) {
     return requiredExtensions.empty();
 }
 
-bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device) {
+bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device, vk::PhysicalDeviceType deviceType) {
     vk::PhysicalDeviceProperties deviceProperties{device.getProperties()};
     bool extensionSupported{
         checkDeviceExtensionSuppport(device)};
 
-    return deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && extensionSupported;
+    return deviceProperties.deviceType == deviceType && extensionSupported;
 }
 
 Renderer::~Renderer() {

@@ -53,7 +53,7 @@ class Renderer {
     uint32_t getQueueFamilyIndex();
     void createDevice();
     void pickPhysicalDevice();
-    bool isDeviceSuitable(vk::raii::PhysicalDevice device);
+    bool isDeviceSuitable(vk::raii::PhysicalDevice device, vk::PhysicalDeviceType deviceType);
     bool checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device);
     void mainLoop();
     void recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex);
