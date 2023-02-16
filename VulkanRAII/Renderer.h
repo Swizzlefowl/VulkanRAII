@@ -21,6 +21,7 @@ class Renderer {
 #endif //
     friend class PresentationEngine;
     friend class Graphics;
+    friend class Resources;
     GLFWwindow* window;
     const int width{1280};
     const int height{720};
@@ -38,12 +39,11 @@ class Renderer {
     vk::raii::Queue m_queue{nullptr};
     PresentationEngine* pEngine{nullptr};
     Graphics* pGraphics{nullptr};
-    
-   
+    Resources* presources{nullptr};
 
   public:
     Renderer();
-    void run(PresentationEngine* engine, Graphics* Graphics);
+    void run(PresentationEngine* engine, Graphics* Graphics, Resources* resources);
     ~Renderer();
 
   private:

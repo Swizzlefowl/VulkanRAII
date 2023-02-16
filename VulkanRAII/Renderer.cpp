@@ -1,10 +1,12 @@
 #include "Renderer.h"
 #include "Graphics.h"
 #include "PresentationEngine.h"
+#include "Resources.h"
 
-void Renderer::run(PresentationEngine* engine, Graphics* Graphics) {
+void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* resources) {
     pEngine = engine;
     pGraphics = Graphics;
+    presources = resources;
     initWindow();
     initVulkan();
     mainLoop();
@@ -26,6 +28,7 @@ void Renderer::initVulkan() {
     pEngine->createImageViews();
     pGraphics->createRenderPass();
     pGraphics->createGraphicsPipeline();
+    presources->createResources();
     setupDebugCallback();
     listExtensionNames();
 }

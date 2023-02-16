@@ -45,7 +45,6 @@ vk::Extent2D PresentationEngine::chooseSwapExtend(const vk::SurfaceCapabilitiesK
 
 void PresentationEngine::createImageViews() {
     std::vector<vk::Image> images = m_swapChain.getImages();
-
     for (auto& image : images) {
         vk::ImageViewCreateInfo createInfo{};
         createInfo.image = image;

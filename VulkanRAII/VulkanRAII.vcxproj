@@ -141,12 +141,14 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PresentationEngine.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Resources.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="commonIncludes.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="PresentationEngine.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Resources.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
