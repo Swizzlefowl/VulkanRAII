@@ -39,7 +39,7 @@ class Renderer {
     vk::raii::Queue m_queue{nullptr};
     PresentationEngine* pEngine{nullptr};
     Graphics* pGraphics{nullptr};
-    Resources* presources{nullptr};
+    Resources* pResources{nullptr};
 
   public:
     Renderer();
@@ -56,6 +56,8 @@ class Renderer {
     bool isDeviceSuitable(vk::raii::PhysicalDevice device);
     bool checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device);
     void mainLoop();
+    void recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex);
+    void drawFrame();
 
     // functions for debugging
     std::vector<const char*> getRequiredExtensions();

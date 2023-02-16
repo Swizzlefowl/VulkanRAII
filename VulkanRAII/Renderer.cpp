@@ -6,7 +6,7 @@
 void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* resources) {
     pEngine = engine;
     pGraphics = Graphics;
-    presources = resources;
+    pResources = resources;
     initWindow();
     initVulkan();
     mainLoop();
@@ -22,14 +22,14 @@ void Renderer::initWindow() {
 
 void Renderer::initVulkan() {
     createInstance();
+    setupDebugCallback();
     pEngine->createSurface();
     createDevice();
     pEngine->createSwapchain();
     pEngine->createImageViews();
     pGraphics->createRenderPass();
     pGraphics->createGraphicsPipeline();
-    presources->createResources();
-    setupDebugCallback();
+    pResources->createResources();
     listExtensionNames();
 }
 
@@ -154,8 +154,88 @@ void Renderer::listExtensionNames() {
 }
 
 void Renderer::mainLoop() {
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        drawFrame();
+    }
+    m_device.waitIdle();
+}
+
+void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex) {
+    vk::CommandBufferBeginInfo beginInfo{};
+    commandBuffer.begin(beginInfo);
+
+    vk::RenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.renderPass = *pGraphics->renderPass;
+    renderPassInfo.framebuffer = *pResources->frambebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
+    renderPassInfo.renderArea.extent = pEngine->swapChainExtent;
+
+    vk::ClearValue clearColor{{0.0f, 0.0f, 0.0f, 1.0f}};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
+
+    vk::DeviceSize offsets{0};
+    vk::Viewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(pEngine->swapChainExtent.width);
+    viewport.height = static_cast<float>(pEngine->swapChainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    commandBuffer.setViewport(0, viewport);
+
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{0, 0};
+    scissor.extent = pEngine->swapChainExtent;
+
+    commandBuffer.setScissor(0, scissor);
+    commandBuffer.draw(3, 1, 0, 0);
+    commandBuffer.endRenderPass();
+
+    try {
+        commandBuffer.end();
+    } catch (vk::SystemError err) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+}
+
+void Renderer::drawFrame() {
+    m_device.waitForFences(*pResources->inFlightFences, VK_TRUE, UINT64_MAX);
+    m_device.resetFences(*pResources->inFlightFences);
+
+    vk::Result result;
+    uint32_t imageIndex{};
+    std::tie(result, imageIndex) = pEngine->m_swapChain.acquireNextImage(UINT64_MAX,
+        *pResources->imageAvailableSemaphores);
+    if (result != vk::Result::eSuccess)
+        throw std::runtime_error("failed to acquire an image!");
+
+    recordCommandbuffer(pResources->commandBuffer[0], imageIndex);
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &(*pResources->imageAvailableSemaphores);
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &(*pResources->commandBuffer[0]);
+    vk::PipelineStageFlags waitStages{vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    submitInfo.pWaitDstStageMask = &waitStages;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &(*pResources->finishedRenderingSemaphores);
+    m_queue.submit(submitInfo, *pResources->inFlightFences);
+
+    vk::PresentInfoKHR presentInfo{};
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &(*pResources->finishedRenderingSemaphores);
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &(*pEngine->m_swapChain);
+    presentInfo.pResults = nullptr;
+
+    m_queue.presentKHR(presentInfo);
 }
 
 // I really dont know how it works but it works
