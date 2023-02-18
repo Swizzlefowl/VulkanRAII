@@ -8,6 +8,8 @@
 #include <limits>
 #include <algorithm>
 #include <string>
+#include <glm/common.hpp>
+#include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #include <GLFW/glfw3.h>

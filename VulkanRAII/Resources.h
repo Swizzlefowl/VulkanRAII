@@ -9,6 +9,8 @@ class Resources {
     void createCommandPools();
     void createCommandbuffer();
     void createSyncObjects();
+    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+    void createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size);
 
   public:
     std::vector<vk::raii::Framebuffer> frambebuffers;
@@ -17,6 +19,10 @@ class Resources {
     vk::raii::Semaphore imageAvailableSemaphores{nullptr};
     vk::raii::Semaphore finishedRenderingSemaphores{nullptr};
     vk::raii::Fence inFlightFences{nullptr};
+    vk::raii::Buffer posBuffer{nullptr};
+    vk::raii::DeviceMemory posBufferMemory{nullptr};
+    vk::raii::Buffer colorBuffer{nullptr};
+    vk::raii::DeviceMemory colorBufferMemory{nullptr};
 
     Resources(Renderer& renderer);
     void createResources();

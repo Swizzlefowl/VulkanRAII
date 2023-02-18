@@ -149,6 +149,7 @@
     <ClInclude Include="PresentationEngine.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Resources.h" />
+    <ClInclude Include="vk_mem_alloc.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

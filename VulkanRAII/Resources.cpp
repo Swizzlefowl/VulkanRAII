@@ -18,7 +18,7 @@ void Resources::createframebuffers() {
         try {
             frambebuffers.push_back(m_renderer.m_device.createFramebuffer(bufferInfo));
         } catch (vk::Error& err) {
-            err.what();
+            std::cout << err.what();
         }
     }
 }
@@ -30,7 +30,7 @@ void Resources::createCommandPools() {
     try {
         commandPool = m_renderer.m_device.createCommandPool(poolInfo);
     } catch (vk::Error& err) {
-        err.what();
+        std::cout << err.what();
     }
 }
 
@@ -52,7 +52,46 @@ void Resources::createSyncObjects() {
         imageAvailableSemaphores = m_renderer.m_device.createSemaphore(semaphoreInfo);
         finishedRenderingSemaphores = m_renderer.m_device.createSemaphore(semaphoreInfo);
     } catch (vk::Error& err) {
-        err.what();
+        std::cout << err.what();
+    }
+}
+
+uint32_t Resources::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
+    vk::PhysicalDeviceMemoryProperties memProperties{
+        m_renderer.m_physicalDevice.getMemoryProperties()};
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            return i;
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size) {
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.size = size;
+    uint32_t queueIndex = m_renderer.getQueueFamilyIndex();
+    bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+    bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+   
+    try {
+        buffer = m_renderer.m_device.createBuffer(bufferInfo);
+    }
+    catch (vk::Error& err) {
+        std::cout << err.what();
+    }
+    vk::MemoryRequirements memRequirments{buffer.getMemoryRequirements()};
+    vk::MemoryAllocateInfo allocInfo{};
+    allocInfo.allocationSize = memRequirments.size;
+    allocInfo.memoryTypeIndex = findMemoryType(
+        memRequirments.memoryTypeBits,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+    
+    try {
+        memory = m_renderer.m_device.allocateMemory(allocInfo);
+        buffer.bindMemory(*memory, 0);
+    }
+    catch (vk::Error& err) {
+        std::cout << err.what();
     }
 }
 
@@ -65,4 +104,6 @@ void Resources::createResources() {
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
+    createBuffers(posBuffer, posBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size()));
+    createBuffers(colorBuffer, colorBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size()));
 }

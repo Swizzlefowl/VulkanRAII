@@ -27,6 +27,18 @@ class Renderer {
     const int height{720};
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
+
+    //arrays for traingle attributes
+     const std::vector<glm::vec3> pos = {
+        {0.0f, -0.5f, 0.0},
+        {0.5f, 0.5f, 0.0},
+        {-0.5f, 0.5f, 0.0}};
+
+    const std::vector<glm::vec3> color = {
+        {1.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f}};
+
     vk::raii::Context m_context{};
     vk::raii::Instance m_instance{nullptr};
     vk::raii::PhysicalDevices m_physicalDevices{nullptr};
