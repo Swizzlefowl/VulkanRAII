@@ -23,11 +23,35 @@ void Graphics::createGraphicsPipeline() {
     vk::PipelineShaderStageCreateInfo shaderStagesInfo[]{vertShaderStageInfo,
         fragShaderStageInfo};
 
+     vk::VertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(glm::vec3);
+    bindingDescription.inputRate = vk::VertexInputRate::eVertex;
+
+    vk::VertexInputBindingDescription bindingDescription2{};
+    bindingDescription2.binding = 1;
+    bindingDescription2.stride = sizeof(glm::vec3);
+    bindingDescription2.inputRate = vk::VertexInputRate::eVertex;
+
+    std::vector<vk::VertexInputBindingDescription> bindings{
+        bindingDescription, bindingDescription2};
+
+    std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions{};
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 0;
+    attributeDescriptions[0].format = vk::Format::eR32G32B32Sfloat;
+    attributeDescriptions[0].offset = 0;
+
+    attributeDescriptions[1].binding = 1;
+    attributeDescriptions[1].location = 1;
+    attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
+    attributeDescriptions[1].offset = 0;
+
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 2;
+    vertexInputInfo.pVertexBindingDescriptions = bindings.data();
+    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
