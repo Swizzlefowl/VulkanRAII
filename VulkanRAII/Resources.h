@@ -11,6 +11,7 @@ class Resources {
     void createSyncObjects();
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size);
+    void mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const std::vector<glm::vec3>& vec);
 
   public:
     std::vector<vk::raii::Framebuffer> frambebuffers;

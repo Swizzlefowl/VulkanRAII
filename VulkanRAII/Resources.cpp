@@ -95,6 +95,11 @@ void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& 
     }
 }
 
+void Resources::mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const std::vector<glm::vec3>& vec) {
+    auto data = memory.mapMemory(0, size);
+    memcpy(data, vec.data(), size);
+}
+
 Resources::Resources(Renderer& renderer)
     : m_renderer{renderer} {
 }
@@ -106,4 +111,8 @@ void Resources::createResources() {
     createSyncObjects();
     createBuffers(posBuffer, posBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size()));
     createBuffers(colorBuffer, colorBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size()));
+    mapMemory(posBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size()), m_renderer.pos);
+    mapMemory(colorBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size()),  m_renderer.color);
+    posBufferMemory.unmapMemory();
+    colorBufferMemory.unmapMemory();
 }
