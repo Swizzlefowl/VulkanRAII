@@ -23,7 +23,7 @@ void Graphics::createGraphicsPipeline() {
     vk::PipelineShaderStageCreateInfo shaderStagesInfo[]{vertShaderStageInfo,
         fragShaderStageInfo};
 
-     vk::VertexInputBindingDescription bindingDescription{};
+    vk::VertexInputBindingDescription bindingDescription{};
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(glm::vec3);
     bindingDescription.inputRate = vk::VertexInputRate::eVertex;

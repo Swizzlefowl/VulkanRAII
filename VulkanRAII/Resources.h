@@ -24,7 +24,9 @@ class Resources {
     vk::raii::DeviceMemory posBufferMemory{nullptr};
     vk::raii::Buffer colorBuffer{nullptr};
     vk::raii::DeviceMemory colorBufferMemory{nullptr};
+    void* colorPtr{nullptr};
 
     Resources(Renderer& renderer);
+    ~Resources();
     void createResources();
 };

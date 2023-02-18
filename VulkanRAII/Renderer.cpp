@@ -157,6 +157,25 @@ void Renderer::listExtensionNames() {
 void Renderer::mainLoop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        std::array<int, 6> keys{};
+        keys[0] = glfwGetKey(window, GLFW_KEY_1);
+        keys[1] = glfwGetKey(window, GLFW_KEY_2);
+        keys[2] = glfwGetKey(window, GLFW_KEY_3);
+        keys[3] = glfwGetKey(window, GLFW_KEY_4);
+        keys[4] = glfwGetKey(window, GLFW_KEY_5);
+        keys[5] = glfwGetKey(window, GLFW_KEY_6);
+        if (keys[0] == GLFW_PRESS)
+            changeColor(Red);
+        if (keys[1] == GLFW_PRESS)
+            changeColor(Green);
+        if (keys[2] == GLFW_PRESS)
+            changeColor(Blue);
+        if (keys[3] == GLFW_PRESS)
+            changeColor(RGB);
+        if (keys[4] == GLFW_PRESS)
+            changeColor(RG);
+        if (keys[5] == GLFW_PRESS)
+            changeColor(GB);
         drawFrame();
     }
     m_device.waitIdle();
@@ -216,7 +235,64 @@ void Renderer::createRandomNumberGenerator() {
 }
 
 void Renderer::changeColor(Colors color) {
+    m_device.waitIdle();
 
+    std::vector<glm::vec3> colorValue = {
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f}};
+    vk::DeviceSize size = sizeof(colorValue[0]) * colorValue.size();
+    std::uniform_real_distribution<float> dst{0.0f, 1.0f};
+
+    // std::cout << "eneter a number\n";
+    // std::cin >> num;
+    switch (color) {
+        case Red:
+            for (auto& attribute : colorValue) {
+                attribute.r = 1.0f;
+                attribute.g = 0.0f;
+                attribute.b = 0.0f;
+            }
+            break;
+        case Green:
+            for (auto& attribute : colorValue) {
+                attribute.r = 0.0f;
+                attribute.g = 1.0f;
+                attribute.b = 0.0f;
+            }
+            break;
+        case Blue:
+            for (auto& attribute : colorValue) {
+                attribute.r = 0.0f;
+                attribute.g = 0.0f;
+                attribute.b = 1.0f;
+            }
+            break;
+        case RGB:
+            for (auto& attribute : colorValue) {
+                attribute.r = dst(mt);
+                attribute.g = dst(mt);
+                attribute.b = dst(mt);
+            }
+            break;
+        case RG:
+            for (auto& attribute : colorValue) {
+                attribute.r = 1.0f;
+                attribute.g = 1.0f;
+                attribute.b = 0.0f;
+            }
+            break;
+        case GB:
+            for (auto& attribute : colorValue) {
+                attribute.r = 0.0f;
+                attribute.g = 1.0f;
+                attribute.b = 1.0f;
+            }
+            break;
+        default:
+            break;
+    }
+    memcpy(pResources->colorPtr, colorValue.data(), static_cast<size_t>(size));
 }
 
 void Renderer::drawFrame() {

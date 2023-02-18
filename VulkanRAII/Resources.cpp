@@ -104,15 +104,21 @@ Resources::Resources(Renderer& renderer)
     : m_renderer{renderer} {
 }
 
+Resources::~Resources() {
+    colorBufferMemory.unmapMemory();
+}
+
 void Resources::createResources() {
     createframebuffers();
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
-    createBuffers(posBuffer, posBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size()));
-    createBuffers(colorBuffer, colorBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size()));
-    mapMemory(posBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size()), m_renderer.pos);
-    mapMemory(colorBufferMemory, static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size()),  m_renderer.color);
+    vk::DeviceSize posSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size());
+    vk::DeviceSize colorSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size());
+    createBuffers(posBuffer, posBufferMemory, posSize);
+    createBuffers(colorBuffer, colorBufferMemory, colorSize);
+    mapMemory(posBufferMemory, posSize, m_renderer.pos);
+    colorPtr = colorBufferMemory.mapMemory(0, colorSize);
+    memcpy(colorPtr, m_renderer.color.data(), colorSize);
     posBufferMemory.unmapMemory();
-    colorBufferMemory.unmapMemory();
 }
