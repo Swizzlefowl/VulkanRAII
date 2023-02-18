@@ -1,5 +1,6 @@
 #pragma once
 #include "commonIncludes.h"
+#include <random>
 // clang formats puts the glfw include above the vulkan include which breaks the program
 // remeber to put it in the correct place after formatting
 
@@ -52,8 +53,19 @@ class Renderer {
     PresentationEngine* pEngine{nullptr};
     Graphics* pGraphics{nullptr};
     Resources* pResources{nullptr};
+    std::mt19937_64 mt{};
 
   public:
+    enum Colors {
+        Red,
+        Green,
+        Blue,
+        RG,
+        RGB,
+        GB,
+        RB
+    };
+
     Renderer();
     void run(PresentationEngine* engine, Graphics* Graphics, Resources* resources);
     ~Renderer();
@@ -69,6 +81,8 @@ class Renderer {
     bool checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device);
     void mainLoop();
     void recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex);
+    void createRandomNumberGenerator();
+    void changeColor(Colors color);
     void drawFrame();
 
     // functions for debugging

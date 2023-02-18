@@ -7,6 +7,7 @@ void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* re
     pEngine = engine;
     pGraphics = Graphics;
     pResources = resources;
+    createRandomNumberGenerator();
     initWindow();
     initVulkan();
     mainLoop();
@@ -175,11 +176,10 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    vk::Buffer buffers[]{*pResources->posBuffer, *pResources->colorBuffer};
-    vk::DeviceSize offsets[]{0, 0};
+    std::vector<vk::Buffer> buffers{*pResources->posBuffer, *pResources->colorBuffer};
+    std::vector<vk::DeviceSize> offsets{0, 0};
 
     commandBuffer.bindVertexBuffers(0, buffers, offsets);
-
     commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
 
@@ -205,6 +205,18 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     } catch (vk::SystemError err) {
         throw std::runtime_error("failed to record command buffer!");
     }
+}
+
+void Renderer::createRandomNumberGenerator() {
+    std::random_device rd{};
+    std::seed_seq seq{
+        rd.max(), rd.max(), rd.max(), rd.max(),
+        rd.max(), rd.max(), rd.max(), rd.max(), rd.max(), rd.max(), rd.max()};
+    mt = std::mt19937_64{seq};
+}
+
+void Renderer::changeColor(Colors color) {
+
 }
 
 void Renderer::drawFrame() {
