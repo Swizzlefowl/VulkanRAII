@@ -175,10 +175,14 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
+    vk::Buffer buffers[]{*pResources->posBuffer, *pResources->colorBuffer};
+    vk::DeviceSize offsets[]{0, 0};
+
+    commandBuffer.bindVertexBuffers(0, buffers, offsets);
+
     commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
 
-    vk::DeviceSize offsets{0};
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
