@@ -5,7 +5,6 @@ class Renderer;
 class Resources {
   private:
     Renderer& m_renderer;
-    void createframebuffers();
     void createCommandPools();
     void createCommandbuffer();
     void createSyncObjects();
@@ -27,6 +26,7 @@ class Resources {
     void* colorPtr{nullptr};
 
     Resources(Renderer& renderer);
+    void createframebuffers();
     ~Resources();
     void createResources();
 };

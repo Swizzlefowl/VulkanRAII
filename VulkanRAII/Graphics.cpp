@@ -102,11 +102,16 @@ void Graphics::createGraphicsPipeline() {
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
+    vk::PushConstantRange pushConstant{};
+    pushConstant.offset = 0;
+    pushConstant.size = sizeof(Renderer::MeshPushConstants);
+    pushConstant.stageFlags = vk::ShaderStageFlagBits::eVertex;
+
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = 0;
     pipelineLayoutInfo.pSetLayouts = nullptr;
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
     try {
         pipelineLayout = m_renderer.m_device.createPipelineLayout(pipelineLayoutInfo);

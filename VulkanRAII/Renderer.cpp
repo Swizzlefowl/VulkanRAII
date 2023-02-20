@@ -19,6 +19,8 @@ void Renderer::initWindow() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     window = glfwCreateWindow(width, height, "hello Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
 void Renderer::initVulkan() {
@@ -215,7 +217,14 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     scissor.offset = vk::Offset2D{0, 0};
     scissor.extent = pEngine->swapChainExtent;
 
+    glm::mat4 trans = glm::mat4(1.0f);
+    trans = glm::rotate(trans, static_cast<float>(glfwGetTime()), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    MeshPushConstants mesh{};
+    mesh.render_matrix = trans;
+    std::vector<MeshPushConstants> meshes{mesh};
     commandBuffer.setScissor(0, scissor);
+    commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
     commandBuffer.draw(3, 1, 0, 0);
     commandBuffer.endRenderPass();
 
@@ -297,15 +306,26 @@ void Renderer::changeColor(Colors color) {
 
 void Renderer::drawFrame() {
     m_device.waitForFences(*pResources->inFlightFences, VK_TRUE, UINT64_MAX);
-    m_device.resetFences(*pResources->inFlightFences);
 
     vk::Result result;
     uint32_t imageIndex{};
-    std::tie(result, imageIndex) = pEngine->m_swapChain.acquireNextImage(UINT64_MAX,
-        *pResources->imageAvailableSemaphores);
-    if (result != vk::Result::eSuccess)
-        throw std::runtime_error("failed to acquire an image!");
 
+    // unfortunately vk raii seems to throw an exception if you cant present
+    //  or aquire images anymore because the surface is incompatible
+    //  so the try catch blocks are necessary to successfully recreate
+    //  the swapchain
+    try {
+        std::tie(result, imageIndex) = pEngine->m_swapChain.acquireNextImage(UINT64_MAX,
+            *pResources->imageAvailableSemaphores);
+    } catch (vk::Error& err) {
+        std::cout << "recreate the swap chain\n";
+        recreateSwapchain();
+        return;
+    }
+
+    m_device.resetFences(*pResources->inFlightFences);
+
+    pResources->commandBuffer[0].reset();
     recordCommandbuffer(pResources->commandBuffer[0], imageIndex);
 
     vk::SubmitInfo submitInfo{};
@@ -327,7 +347,12 @@ void Renderer::drawFrame() {
     presentInfo.pSwapchains = &(*pEngine->m_swapChain);
     presentInfo.pResults = nullptr;
 
-    m_queue.presentKHR(presentInfo);
+    try {
+        result = m_queue.presentKHR(presentInfo);
+    } catch (vk::Error& err) {
+        std::cout << "recreate the swapchain\n";
+        recreateSwapchain();
+    }
 }
 
 // I really dont know how it works but it works
@@ -360,6 +385,32 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debugCallback(VkDebugUtilsMessageSeveri
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
     return VK_FALSE;
+}
+
+void Renderer::recreateSwapchain() {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+    try {
+        vkDeviceWaitIdle(*m_device);
+        cleanupSwapchain();
+        pEngine->createSwapchain();
+        pEngine->createImageViews();
+        pResources->createframebuffers();
+    } catch (vk::Error& err) {
+        throw("failed to recreate swapchainImage!");
+    }
+}
+
+void Renderer::cleanupSwapchain() {
+    for (auto& framebuffer : pResources->frambebuffers)
+        framebuffer.~Framebuffer();
+    for (auto& imageViews : pEngine->swapChainImageViews)
+        imageViews.~ImageView();
+    pEngine->m_swapChain.~SwapchainKHR();
 }
 
 void Renderer::pickPhysicalDevice() {
@@ -398,6 +449,11 @@ bool Renderer::checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device) {
         requiredExtensions.erase(extension.extensionName);
 
     return requiredExtensions.empty();
+}
+
+void Renderer::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    auto app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
+    app->framebufferResized = true;
 }
 
 bool Renderer::isDeviceSuitable(vk::raii::PhysicalDevice device, vk::PhysicalDeviceType deviceType) {

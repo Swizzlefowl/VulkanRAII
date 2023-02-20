@@ -24,8 +24,8 @@ class Renderer {
     friend class Graphics;
     friend class Resources;
     GLFWwindow* window;
-    const int width{1280};
-    const int height{720};
+    const int width{2400};
+    const int height{1400};
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
 
@@ -39,6 +39,17 @@ class Renderer {
         {1.0f, 0.0f, 0.0f},
         {0.0f, 1.0f, 0.0f},
         {0.0f, 0.0f, 1.0f}};
+
+    struct UniformBufferObject {
+        glm::mat4 model;
+        glm::mat4 view;
+        glm::mat4 proj;
+    };
+
+    struct MeshPushConstants {
+        glm::vec4 data;
+        glm::mat4 render_matrix;
+    };
 
     vk::raii::Context m_context{};
     vk::raii::Instance m_instance{nullptr};
@@ -54,6 +65,7 @@ class Renderer {
     Graphics* pGraphics{nullptr};
     Resources* pResources{nullptr};
     std::mt19937_64 mt{};
+    bool framebufferResized{false};
 
   public:
     enum Colors {
@@ -72,6 +84,7 @@ class Renderer {
 
   private:
     void initWindow();
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     void initVulkan();
     void createInstance();
     uint32_t getQueueFamilyIndex();
@@ -84,6 +97,8 @@ class Renderer {
     void createRandomNumberGenerator();
     void changeColor(Colors color);
     void drawFrame();
+    void cleanupSwapchain();
+    void recreateSwapchain();
 
     // functions for debugging
     std::vector<const char*> getRequiredExtensions();

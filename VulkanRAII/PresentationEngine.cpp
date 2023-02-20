@@ -44,7 +44,13 @@ vk::Extent2D PresentationEngine::chooseSwapExtend(const vk::SurfaceCapabilitiesK
 }
 
 void PresentationEngine::createImageViews() {
+    // we are creating temporary imageviews to eventually
+    // move ownership to our imageviews
+    // if you dont do it this way it will throw an exception when
+    // recreating the swapchain
+
     std::vector<vk::Image> images = m_swapChain.getImages();
+    std::vector<vk::raii::ImageView> imageviews{};
     for (auto& image : images) {
         vk::ImageViewCreateInfo createInfo{};
         createInfo.image = image;
@@ -62,11 +68,12 @@ void PresentationEngine::createImageViews() {
             0, 1, 0, 1};
         createInfo.subresourceRange = imageSubResource;
         try {
-            swapChainImageViews.push_back(m_renderer.m_device.createImageView(createInfo));
+            imageviews.push_back(m_renderer.m_device.createImageView(createInfo));
         } catch (vk::SystemError& err) {
             throw std::runtime_error("failed to create image views");
         }
     }
+    swapChainImageViews = std::move(imageviews);
 }
 
 PresentationEngine::PresentationEngine(Renderer& renderer)

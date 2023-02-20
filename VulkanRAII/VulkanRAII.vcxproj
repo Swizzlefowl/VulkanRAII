@@ -149,7 +149,6 @@
     <ClInclude Include="PresentationEngine.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Resources.h" />
-    <ClInclude Include="vk_mem_alloc.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.frag" />

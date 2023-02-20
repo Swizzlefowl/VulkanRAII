@@ -6,6 +6,12 @@
 // the attachments refer to the vkImage views which itself is a view into
 // our swapchain images
 void Resources::createframebuffers() {
+    // we are creating temporary framebuffers to eventually
+    // move ownership to our framebuffers
+    // if you dont do it this way it will throw an exception when
+    // recreating the swapchain
+
+    std::vector<vk::raii::Framebuffer> framebuffs{};
     for (auto& attachment : m_renderer.pEngine->swapChainImageViews) {
         vk::FramebufferCreateInfo bufferInfo{};
         bufferInfo.width = m_renderer.pEngine->swapChainExtent.width;
@@ -16,11 +22,12 @@ void Resources::createframebuffers() {
         bufferInfo.pAttachments = &(*attachment);
 
         try {
-            frambebuffers.push_back(m_renderer.m_device.createFramebuffer(bufferInfo));
+            framebuffs.push_back(m_renderer.m_device.createFramebuffer(bufferInfo));
         } catch (vk::Error& err) {
             std::cout << err.what();
         }
     }
+    frambebuffers = std::move(framebuffs);
 }
 
 void Resources::createCommandPools() {
@@ -72,11 +79,10 @@ void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& 
     uint32_t queueIndex = m_renderer.getQueueFamilyIndex();
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
     bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-   
+
     try {
         buffer = m_renderer.m_device.createBuffer(bufferInfo);
-    }
-    catch (vk::Error& err) {
+    } catch (vk::Error& err) {
         std::cout << err.what();
     }
     vk::MemoryRequirements memRequirments{buffer.getMemoryRequirements()};
@@ -85,12 +91,11 @@ void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& 
     allocInfo.memoryTypeIndex = findMemoryType(
         memRequirments.memoryTypeBits,
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-    
+
     try {
         memory = m_renderer.m_device.allocateMemory(allocInfo);
         buffer.bindMemory(*memory, 0);
-    }
-    catch (vk::Error& err) {
+    } catch (vk::Error& err) {
         std::cout << err.what();
     }
 }
