@@ -29,16 +29,22 @@ class Renderer {
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
 
-    // arrays for traingle attributes
-    const std::vector<glm::vec3> pos = {
-        {0.0f, -0.5f, 0.0},
-        {0.5f, 0.5f, 0.0},
-        {-0.5f, 0.5f, 0.0}};
+    // arrays for triangle attributes
+    const std::vector<glm::vec3> pos{
+        {-0.5f, -0.5f, 0.0f},
+        {0.5f, -0.5f, 0.0f},
+        {0.5f, 0.5f, 0.0f},
+        {-0.5f, 0.5f, 0.0f}};
 
-    const std::vector<glm::vec3> color = {
+    const std::vector<glm::vec3> color {
         {1.0f, 0.0f, 0.0f},
         {0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f}};
+        {0.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f}
+    };
+
+    const std::vector<uint16_t> indices = {
+        0, 1, 2, 2, 3, 0};
 
     struct UniformBufferObject {
         glm::mat4 model;

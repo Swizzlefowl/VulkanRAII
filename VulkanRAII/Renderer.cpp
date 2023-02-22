@@ -201,6 +201,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     std::vector<vk::DeviceSize> offsets{0, 0};
 
     commandBuffer.bindVertexBuffers(0, buffers, offsets);
+    commandBuffer.bindIndexBuffer(*pResources->indexBuffer, 0, vk::IndexType::eUint16);
     commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
 
@@ -225,7 +226,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     std::vector<MeshPushConstants> meshes{mesh};
     commandBuffer.setScissor(0, scissor);
     commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
-    commandBuffer.draw(3, 1, 0, 0);
+    commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
     commandBuffer.endRenderPass();
 
     try {

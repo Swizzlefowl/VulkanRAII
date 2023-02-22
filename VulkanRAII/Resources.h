@@ -9,8 +9,8 @@ class Resources {
     void createCommandbuffer();
     void createSyncObjects();
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-    void createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size);
-    void mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const std::vector<glm::vec3>& vec);
+    void createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size, vk::BufferUsageFlagBits usage);
+    void mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const auto& vec);
 
   public:
     std::vector<vk::raii::Framebuffer> frambebuffers;
@@ -23,6 +23,8 @@ class Resources {
     vk::raii::DeviceMemory posBufferMemory{nullptr};
     vk::raii::Buffer colorBuffer{nullptr};
     vk::raii::DeviceMemory colorBufferMemory{nullptr};
+    vk::raii::Buffer indexBuffer{nullptr};
+    vk::raii::DeviceMemory indexBufferMemory{nullptr};
     void* colorPtr{nullptr};
 
     Resources(Renderer& renderer);

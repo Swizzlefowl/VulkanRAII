@@ -73,12 +73,12 @@ uint32_t Resources::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags 
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size) {
+void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size, vk::BufferUsageFlagBits usage) {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = size;
     uint32_t queueIndex = m_renderer.getQueueFamilyIndex();
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-    bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+    bufferInfo.usage = usage;
 
     try {
         buffer = m_renderer.m_device.createBuffer(bufferInfo);
@@ -100,7 +100,7 @@ void Resources::createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& 
     }
 }
 
-void Resources::mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const std::vector<glm::vec3>& vec) {
+void Resources::mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const auto& vec) {
     auto data = memory.mapMemory(0, size);
     memcpy(data, vec.data(), size);
 }
@@ -118,12 +118,21 @@ void Resources::createResources() {
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
-    vk::DeviceSize posSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size());
-    vk::DeviceSize colorSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size());
-    createBuffers(posBuffer, posBufferMemory, posSize);
-    createBuffers(colorBuffer, colorBufferMemory, colorSize);
+    vk::DeviceSize posSize = 
+        static_cast<vk::DeviceSize>
+        (sizeof(m_renderer.pos[0]) * m_renderer.pos.size());
+    vk::DeviceSize colorSize = 
+        static_cast<vk::DeviceSize>
+        (sizeof(m_renderer.color[0]) * m_renderer.color.size());
+    vk::DeviceSize indexSize = 
+        static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
+    createBuffers(posBuffer, posBufferMemory, posSize, vk::BufferUsageFlagBits::eVertexBuffer);
+    createBuffers(colorBuffer, colorBufferMemory, colorSize, vk::BufferUsageFlagBits::eVertexBuffer);
+    createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
     mapMemory(posBufferMemory, posSize, m_renderer.pos);
+    mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
     colorPtr = colorBufferMemory.mapMemory(0, colorSize);
     memcpy(colorPtr, m_renderer.color.data(), colorSize);
     posBufferMemory.unmapMemory();
+    indexBufferMemory.unmapMemory();
 }
