@@ -159,25 +159,7 @@ void Renderer::listExtensionNames() {
 void Renderer::mainLoop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        std::array<int, 6> keys{};
-        keys[0] = glfwGetKey(window, GLFW_KEY_1);
-        keys[1] = glfwGetKey(window, GLFW_KEY_2);
-        keys[2] = glfwGetKey(window, GLFW_KEY_3);
-        keys[3] = glfwGetKey(window, GLFW_KEY_4);
-        keys[4] = glfwGetKey(window, GLFW_KEY_5);
-        keys[5] = glfwGetKey(window, GLFW_KEY_6);
-        if (keys[0] == GLFW_PRESS)
-            changeColor(Red);
-        if (keys[1] == GLFW_PRESS)
-            changeColor(Green);
-        if (keys[2] == GLFW_PRESS)
-            changeColor(Blue);
-        if (keys[3] == GLFW_PRESS)
-            changeColor(RGB);
-        if (keys[4] == GLFW_PRESS)
-            changeColor(RG);
-        if (keys[5] == GLFW_PRESS)
-            changeColor(GB);
+        changeColor(checkUserInput());
         drawFrame();
     }
     m_device.waitIdle();
@@ -248,9 +230,10 @@ void Renderer::changeColor(Colors color) {
     m_device.waitIdle();
 
     std::vector<glm::vec3> colorValue = {
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f}};
+        {1.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f}};
     vk::DeviceSize size = sizeof(colorValue[0]) * colorValue.size();
     std::uniform_real_distribution<float> dst{0.0f, 1.0f};
 
@@ -299,6 +282,8 @@ void Renderer::changeColor(Colors color) {
                 attribute.b = 1.0f;
             }
             break;
+        case NoColor:
+            return;
         default:
             break;
     }
@@ -413,6 +398,29 @@ void Renderer::cleanupSwapchain() {
         imageViews.~ImageView();
     pEngine->m_swapChain.~SwapchainKHR();
 }
+
+ Renderer::Colors Renderer::checkUserInput() {
+    std::array<int, 6> keys{};
+    keys[0] = glfwGetKey(window, GLFW_KEY_1);
+    keys[1] = glfwGetKey(window, GLFW_KEY_2);
+    keys[2] = glfwGetKey(window, GLFW_KEY_3);
+    keys[3] = glfwGetKey(window, GLFW_KEY_4);
+    keys[4] = glfwGetKey(window, GLFW_KEY_5);
+    keys[5] = glfwGetKey(window, GLFW_KEY_6);
+    if (keys[0] == GLFW_PRESS)
+        return Red;
+    if (keys[1] == GLFW_PRESS)
+        return Green;
+    if (keys[2] == GLFW_PRESS)
+        return Blue;
+    if (keys[3] == GLFW_PRESS)
+        return RGB;
+    if (keys[4] == GLFW_PRESS)
+        return RG;
+    if (keys[5] == GLFW_PRESS)
+        return GB;
+    return NoColor;
+ }
 
 void Renderer::pickPhysicalDevice() {
     if (m_physicalDevices.size() == 1) {

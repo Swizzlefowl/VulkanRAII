@@ -81,7 +81,8 @@ class Renderer {
         RG,
         RGB,
         GB,
-        RB
+        RB,
+        NoColor
     };
 
     Renderer();
@@ -105,6 +106,7 @@ class Renderer {
     void drawFrame();
     void cleanupSwapchain();
     void recreateSwapchain();
+    Colors checkUserInput();
 
     // functions for debugging
     std::vector<const char*> getRequiredExtensions();
