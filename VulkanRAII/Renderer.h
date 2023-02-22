@@ -36,12 +36,11 @@ class Renderer {
         {0.5f, 0.5f, 0.0f},
         {-0.5f, 0.5f, 0.0f}};
 
-    const std::vector<glm::vec3> color {
+    const std::vector<glm::vec3> color{
         {1.0f, 0.0f, 0.0f},
         {0.0f, 1.0f, 0.0f},
         {0.0f, 0.0f, 1.0f},
-        {1.0f, 1.0f, 1.0f}
-    };
+        {1.0f, 1.0f, 1.0f}};
 
     const std::vector<uint16_t> indices = {
         0, 1, 2, 2, 3, 0};
@@ -107,6 +106,7 @@ class Renderer {
     void cleanupSwapchain();
     void recreateSwapchain();
     Colors checkUserInput();
+    int getUserInput();
 
     // functions for debugging
     std::vector<const char*> getRequiredExtensions();

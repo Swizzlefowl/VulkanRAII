@@ -399,7 +399,7 @@ void Renderer::cleanupSwapchain() {
     pEngine->m_swapChain.~SwapchainKHR();
 }
 
- Renderer::Colors Renderer::checkUserInput() {
+Renderer::Colors Renderer::checkUserInput() {
     std::array<int, 6> keys{};
     keys[0] = glfwGetKey(window, GLFW_KEY_1);
     keys[1] = glfwGetKey(window, GLFW_KEY_2);
@@ -420,7 +420,24 @@ void Renderer::cleanupSwapchain() {
     if (keys[5] == GLFW_PRESS)
         return GB;
     return NoColor;
- }
+}
+
+int Renderer::getUserInput() {
+    int getUserDevice{};
+
+    while (true) {
+        // use \ for newline character intead of / this
+
+        std::cout << "Select your preferred GPU\n";
+        std::cin >> getUserDevice;
+        if (!std::cin || getUserDevice <= 0 || getUserDevice > 2) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cerr << "invalid number, please select again\n";
+        } else
+            return getUserDevice;
+    }
+}
 
 void Renderer::pickPhysicalDevice() {
     if (m_physicalDevices.size() == 1) {
@@ -428,10 +445,7 @@ void Renderer::pickPhysicalDevice() {
         return;
     }
     vk::PhysicalDeviceType deviceType{};
-    int getUserDevice{0};
-
-    std::cout << "Select your preferred GPU\n";
-    std::cin >> getUserDevice;
+    auto getUserDevice{getUserInput()};
 
     if (getUserDevice == 1)
         deviceType = vk::PhysicalDeviceType::eIntegratedGpu;
