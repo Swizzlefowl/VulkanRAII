@@ -25,7 +25,10 @@ class Resources {
     vk::raii::DeviceMemory colorBufferMemory{nullptr};
     vk::raii::Buffer indexBuffer{nullptr};
     vk::raii::DeviceMemory indexBufferMemory{nullptr};
+    vk::raii::Buffer uniformBuffer{nullptr};
+    vk::raii::DeviceMemory uniformBufferMemory{nullptr};
     void* colorPtr{nullptr};
+    void* uboPtr{nullptr};
 
     Resources(Renderer& renderer);
     void createframebuffers();

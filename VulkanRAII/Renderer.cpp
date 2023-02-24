@@ -31,6 +31,7 @@ void Renderer::initVulkan() {
     pEngine->createSwapchain();
     pEngine->createImageViews();
     pGraphics->createRenderPass();
+    pGraphics->createDescriptorLayout();
     pGraphics->createGraphicsPipeline();
     pResources->createResources();
     listExtensionNames();

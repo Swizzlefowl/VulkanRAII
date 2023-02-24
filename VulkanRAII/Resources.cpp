@@ -126,13 +126,16 @@ void Resources::createResources() {
         (sizeof(m_renderer.color[0]) * m_renderer.color.size());
     vk::DeviceSize indexSize = 
         static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
+    vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
     createBuffers(posBuffer, posBufferMemory, posSize, vk::BufferUsageFlagBits::eVertexBuffer);
     createBuffers(colorBuffer, colorBufferMemory, colorSize, vk::BufferUsageFlagBits::eVertexBuffer);
     createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
+    createBuffers(uniformBuffer, uniformBufferMemory, uboSize, vk::BufferUsageFlagBits::eUniformBuffer);
     mapMemory(posBufferMemory, posSize, m_renderer.pos);
     mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
     colorPtr = colorBufferMemory.mapMemory(0, colorSize);
     memcpy(colorPtr, m_renderer.color.data(), colorSize);
+    uboPtr =  uniformBufferMemory.mapMemory(0, uboSize);
     posBufferMemory.unmapMemory();
     indexBufferMemory.unmapMemory();
 }
