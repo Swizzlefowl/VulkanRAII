@@ -118,14 +118,9 @@ void Resources::createResources() {
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
-    vk::DeviceSize posSize = 
-        static_cast<vk::DeviceSize>
-        (sizeof(m_renderer.pos[0]) * m_renderer.pos.size());
-    vk::DeviceSize colorSize = 
-        static_cast<vk::DeviceSize>
-        (sizeof(m_renderer.color[0]) * m_renderer.color.size());
-    vk::DeviceSize indexSize = 
-        static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
+    vk::DeviceSize posSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size());
+    vk::DeviceSize colorSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size());
+    vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
     vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
     createBuffers(posBuffer, posBufferMemory, posSize, vk::BufferUsageFlagBits::eVertexBuffer);
     createBuffers(colorBuffer, colorBufferMemory, colorSize, vk::BufferUsageFlagBits::eVertexBuffer);
@@ -135,7 +130,23 @@ void Resources::createResources() {
     mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
     colorPtr = colorBufferMemory.mapMemory(0, colorSize);
     memcpy(colorPtr, m_renderer.color.data(), colorSize);
-    uboPtr =  uniformBufferMemory.mapMemory(0, uboSize);
+    uboPtr = uniformBufferMemory.mapMemory(0, uboSize);
     posBufferMemory.unmapMemory();
     indexBufferMemory.unmapMemory();
+}
+
+void Resources::createDescriptorPool() {
+    vk::DescriptorPoolSize poolSize{};
+    poolSize.type = vk::DescriptorType::eUniformBuffer;
+    poolSize.descriptorCount = 1;
+    vk::DescriptorPoolCreateInfo createInfo{};
+    createInfo.poolSizeCount = 1;
+    createInfo.pPoolSizes = &poolSize;
+    createInfo.maxSets = 1;
+
+    try {
+        descriptorPool = m_renderer.m_device.createDescriptorPool(createInfo);
+    } catch (vk::Error& err) {
+        std::cout << err.what();
+    }
 }
