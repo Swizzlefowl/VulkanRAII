@@ -28,7 +28,7 @@ class Resources {
     vk::raii::Buffer uniformBuffer{nullptr};
     vk::raii::DeviceMemory uniformBufferMemory{nullptr};
     vk::raii::DescriptorPool descriptorPool{nullptr};
-    vk::raii::DescriptorSet descriptorSet{nullptr};
+    std::vector<vk::raii::DescriptorSet> descriptorSet{};
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
 
@@ -37,4 +37,5 @@ class Resources {
     ~Resources();
     void createResources();
     void createDescriptorPool();
+    void allocateDescriptorSets();
 };

@@ -150,3 +150,33 @@ void Resources::createDescriptorPool() {
         std::cout << err.what();
     }
 }
+
+void Resources::allocateDescriptorSets() {
+    vk::DescriptorSetAllocateInfo allocateInfo{};
+    allocateInfo.descriptorSetCount = 1;
+    allocateInfo.descriptorPool = *descriptorPool;
+    allocateInfo.pSetLayouts = &*m_renderer.pGraphics->descriptorSetLayout;
+
+    try {
+        descriptorSet = m_renderer.m_device.allocateDescriptorSets(allocateInfo);
+    } catch (vk::Error& err) {
+        std::cout << err.what();
+    }
+
+    vk::DescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = *uniformBuffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(Renderer::MeshPushConstants);
+
+    vk::WriteDescriptorSet descriptorWrite{};
+    descriptorWrite.dstSet = *descriptorSet[0];
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pBufferInfo = &bufferInfo;
+    descriptorWrite.pImageInfo = nullptr; // Optional
+    descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+    m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
+}

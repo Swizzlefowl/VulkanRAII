@@ -34,6 +34,8 @@ void Renderer::initVulkan() {
     pGraphics->createDescriptorLayout();
     pGraphics->createGraphicsPipeline();
     pResources->createResources();
+    pResources->createDescriptorPool();
+    pResources->allocateDescriptorSets();
     listExtensionNames();
 }
 
@@ -207,8 +209,10 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     MeshPushConstants mesh{};
     mesh.render_matrix = trans;
     std::vector<MeshPushConstants> meshes{mesh};
+    memcpy(pResources->uboPtr, &mesh, sizeof(mesh));
     commandBuffer.setScissor(0, scissor);
-    commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
+    // commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
     commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
     commandBuffer.endRenderPass();
 
