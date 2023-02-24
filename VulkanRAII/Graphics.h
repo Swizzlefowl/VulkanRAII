@@ -10,10 +10,12 @@ class Graphics {
 
   public:
     vk::raii::RenderPass renderPass{nullptr};
+    vk::raii::DescriptorSetLayout descriptorSetLayout{nullptr};
     vk::raii::PipelineLayout pipelineLayout{nullptr};
     vk::raii::Pipeline graphicsPipeline{nullptr};
 
     Graphics(Renderer& renderer);
+    void createDescriptorLayout();
     void createGraphicsPipeline();
     void createRenderPass();
 };

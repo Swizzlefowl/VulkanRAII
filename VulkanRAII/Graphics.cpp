@@ -6,6 +6,27 @@ Graphics::Graphics(Renderer& renderer)
     : m_renderer{renderer} {
 }
 
+void Graphics::createDescriptorLayout() {
+    vk::DescriptorSetLayoutBinding binding{};
+    vk::DescriptorSetLayoutCreateInfo createInfo{};
+
+    binding.binding = 0;
+    binding.descriptorCount = 1;
+    binding.descriptorType = vk::DescriptorType::eUniformBuffer;
+    binding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+    binding.pImmutableSamplers = nullptr;
+
+    createInfo.bindingCount = 1;
+    createInfo.pBindings = &binding;
+    
+    try {
+        descriptorSetLayout = m_renderer.m_device.createDescriptorSetLayout(createInfo);
+    }
+    catch (vk::Error& err) {
+        std::cout << err.what();
+    }
+}
+
 void Graphics::createGraphicsPipeline() {
     auto vertShaderModule{createShaderModules("vertex.spv")};
     auto fragShaderModule{createShaderModules("fragment.spv")};
@@ -102,16 +123,18 @@ void Graphics::createGraphicsPipeline() {
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    vk::PushConstantRange pushConstant{};
-    pushConstant.offset = 0;
-    pushConstant.size = sizeof(Renderer::MeshPushConstants);
-    pushConstant.stageFlags = vk::ShaderStageFlagBits::eVertex;
+    //vk::PushConstantRange pushConstant{};
+    //pushConstant.offset = 0;
+    //pushConstant.size = sizeof(Renderer::MeshPushConstants);
+    //pushConstant.stageFlags = vk::ShaderStageFlagBits::eVertex;
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &(*descriptorSetLayout);
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    //pipelineLayoutInfo.pushConstantRangeCount = 1;
+    //pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
     try {
         pipelineLayout = m_renderer.m_device.createPipelineLayout(pipelineLayoutInfo);
