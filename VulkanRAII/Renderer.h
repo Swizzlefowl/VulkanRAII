@@ -99,6 +99,7 @@ class Renderer {
     void drawFrame();
     void cleanupSwapchain();
     void recreateSwapchain();
+    void transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image);
     Colors checkUserInput();
     int getUserInput();
 

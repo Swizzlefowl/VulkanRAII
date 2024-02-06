@@ -1,5 +1,6 @@
 #include "PresentationEngine.h"
 #include "Renderer.h"
+#include "Resources.h"
 
 PresentationEngine::SwapChainCapablities PresentationEngine::getSwapChainCapabilities() {
     SwapChainCapablities swapChainSupport{
@@ -107,7 +108,7 @@ void PresentationEngine::createSwapchain() {
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+    createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst;
 
     auto queueFamilyIndex = m_renderer.getQueueFamilyIndex();
     createInfo.imageSharingMode = vk::SharingMode::eExclusive;
@@ -127,4 +128,56 @@ void PresentationEngine::createSwapchain() {
     }
     swapChainImagesFormat = surfaceFormat.format;
     swapChainExtent = extent;
+}
+
+void PresentationEngine::createSwapchainImages() {
+    swapChainImages = m_swapChain.getImages();
+}
+
+void PresentationEngine::createBlitImage() {
+    vk::ImageCreateInfo imageInfo{};
+    imageInfo.imageType = vk::ImageType::e2D;
+    imageInfo.extent.width = swapChainExtent.width;
+    imageInfo.extent.height = swapChainExtent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = swapChainImagesFormat;
+    imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
+    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+    imageInfo.tiling = vk::ImageTiling::eOptimal;
+    imageInfo.sharingMode = vk::SharingMode::eExclusive;
+    imageInfo.samples = vk::SampleCountFlagBits::e1;
+
+    blitImage = m_renderer.m_device.createImage(imageInfo);
+
+     vk::MemoryRequirements memRequirements;
+    memRequirements = blitImage.getMemoryRequirements();
+
+    vk::MemoryAllocateInfo allocInfo{};
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = m_renderer.pResources->findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
+    blitImageMemory = m_renderer.m_device.allocateMemory(allocInfo);
+
+    blitImage.bindMemory(*blitImageMemory, 0);
+}
+
+void PresentationEngine::createBlitImageView() {
+    vk::ImageViewCreateInfo createInfo{};
+    createInfo.image = *blitImage;
+    createInfo.format = swapChainImagesFormat;
+    createInfo.viewType = vk::ImageViewType::e2D;
+    vk::ComponentMapping mappings{
+        vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
+        vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity};
+    createInfo.components = mappings;
+
+    // base	MipmapLevel = 0, levelcount = 1, baseArrayLayer = 0, layerCount
+    // =
+    // 1
+    vk::ImageSubresourceRange imageSubResource{vk::ImageAspectFlagBits::eColor,
+        0, 1, 0, 1};
+    createInfo.subresourceRange = imageSubResource;
+
+    blitImageViews = m_renderer.m_device.createImageView(createInfo);
 }

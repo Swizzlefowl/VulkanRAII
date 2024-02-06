@@ -29,13 +29,19 @@ void Renderer::initVulkan() {
     pEngine->createSurface();
     createDevice();
     pEngine->createSwapchain();
+    pEngine->createSwapchainImages();
     pEngine->createImageViews();
+    pEngine->createBlitImage();
+    pEngine->createBlitImageView();
     pGraphics->createRenderPass();
     pGraphics->createDescriptorLayout();
     pGraphics->createGraphicsPipeline();
     pResources->createResources();
     pResources->createDescriptorPool();
     pResources->allocateDescriptorSets();
+    pEngine->createBlitImage();
+    pEngine->createBlitImageView();
+    pResources->createBlitFrameBuffer();
     listExtensionNames();
 }
 
@@ -174,7 +180,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     vk::RenderPassBeginInfo renderPassInfo{};
     renderPassInfo.renderPass = *pGraphics->renderPass;
-    renderPassInfo.framebuffer = *pResources->frambebuffers[imageIndex];
+    //renderPassInfo.framebuffer = *pResources->frambebuffers[imageIndex];
+    renderPassInfo.framebuffer = *pResources->blitFramebuffer;
     renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
     renderPassInfo.renderArea.extent = pEngine->swapChainExtent;
 
@@ -212,10 +219,45 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     memcpy(pResources->uboPtr, &mesh, sizeof(mesh));
     commandBuffer.setScissor(0, scissor);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
-    // commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
+    //commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
     commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
     commandBuffer.endRenderPass();
 
+    // BIG NOTE
+    // barriers syncs things between two commands it was inserted in
+    // for example, A B C where and A and C are commands and B is the barrier
+    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, pEngine->swapChainImages[imageIndex]);
+   
+    vk::ImageBlit region{};
+    vk::ImageSubresourceLayers layers{};
+    region.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.srcSubresource.mipLevel = 0;
+    region.srcSubresource.baseArrayLayer = 0;
+    region.srcSubresource.layerCount = 1;
+    // region.src/dstOffsets just define the range of the images
+    // the blit command will copy ie from 0 to the height/width of
+    // the image
+    region.srcOffsets[0].x = 0;
+    region.srcOffsets[0].y = 0;
+    region.srcOffsets[0].z = 0;
+    region.srcOffsets[1].x = pEngine->swapChainExtent.width;
+    region.srcOffsets[1].y = pEngine->swapChainExtent.height;
+    region.srcOffsets[1].z = 1;
+    region.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.dstSubresource.mipLevel = 0;
+    region.dstSubresource.baseArrayLayer = 0;
+    region.dstSubresource.layerCount = 1;
+    region.dstOffsets[0].x = 0;
+    region.dstOffsets[0].y = 0;
+    region.dstOffsets[0].z = 0;
+    region.dstOffsets[1].x = pEngine->swapChainExtent.width;
+    region.dstOffsets[1].y = pEngine->swapChainExtent.height;
+    region.dstOffsets[1].z = 1;
+
+    
+
+    commandBuffer.blitImage(*pEngine->blitImage, vk::ImageLayout::eTransferSrcOptimal, pEngine->swapChainImages[imageIndex], vk::ImageLayout::eTransferDstOptimal, region, vk::Filter::eLinear);
+    transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
     try {
         commandBuffer.end();
     } catch (vk::SystemError err) {
@@ -391,9 +433,54 @@ void Renderer::recreateSwapchain() {
         pEngine->createSwapchain();
         pEngine->createImageViews();
         pResources->createframebuffers();
+        pEngine->createBlitImage();
+        pEngine->createBlitImageView();
     } catch (vk::Error& err) {
         throw("failed to recreate swapchainImage!");
     }
+}
+
+void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image) {
+    vk::ImageMemoryBarrier memoryBarrier{};
+    memoryBarrier.oldLayout = oldLayout;
+    memoryBarrier.newLayout = newLayout;
+    memoryBarrier.image = image;
+    memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    memoryBarrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    memoryBarrier.subresourceRange.baseMipLevel = 0;
+    memoryBarrier.subresourceRange.levelCount = 1;
+    memoryBarrier.subresourceRange.baseArrayLayer = 0;
+    memoryBarrier.subresourceRange.layerCount = 1;
+
+    vk::PipelineStageFlags sourceStage;
+    vk::PipelineStageFlags destinationStage;
+
+
+    if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        destinationStage = vk::PipelineStageFlagBits::eTransfer;
+    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eNoneKHR;
+
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
+        destinationStage = vk::PipelineStageFlagBits::eBottomOfPipe;
+    } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferSrcOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destinationStage = vk::PipelineStageFlagBits::eTransfer;
+
+    } 
+    else {
+        throw std::invalid_argument("unsupported layout transition!");
+    }
+    commandBuffer.pipelineBarrier(sourceStage, destinationStage, vk::DependencyFlagBits{}, nullptr, nullptr, memoryBarrier);
 }
 
 void Renderer::cleanupSwapchain() {
@@ -402,6 +489,9 @@ void Renderer::cleanupSwapchain() {
     for (auto& imageViews : pEngine->swapChainImageViews)
         imageViews.~ImageView();
     pEngine->m_swapChain.~SwapchainKHR();
+    pEngine->blitImage.~Image();
+    pEngine->blitImageMemory.~DeviceMemory();
+    pEngine->blitImageViews.~ImageView();
 }
 
 Renderer::Colors Renderer::checkUserInput() {

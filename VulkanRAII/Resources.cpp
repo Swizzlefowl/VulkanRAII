@@ -30,6 +30,18 @@ void Resources::createframebuffers() {
     frambebuffers = std::move(framebuffs);
 }
 
+void Resources::createBlitFrameBuffer() {
+    vk::FramebufferCreateInfo bufferInfo{};
+    bufferInfo.width = m_renderer.pEngine->swapChainExtent.width;
+    bufferInfo.height = m_renderer.pEngine->swapChainExtent.height;
+    bufferInfo.layers = 1;
+    bufferInfo.renderPass = *m_renderer.pGraphics->renderPass;
+    bufferInfo.attachmentCount = 1;
+    bufferInfo.pAttachments = &(*m_renderer.pEngine->blitImageViews);
+
+    blitFramebuffer = m_renderer.m_device.createFramebuffer(bufferInfo);
+}
+
 void Resources::createCommandPools() {
     vk::CommandPoolCreateInfo poolInfo{};
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;

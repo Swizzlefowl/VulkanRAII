@@ -8,7 +8,6 @@ class Resources {
     void createCommandPools();
     void createCommandbuffer();
     void createSyncObjects();
-    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void createBuffers(vk::raii::Buffer& buffer, vk::raii::DeviceMemory& memory, vk::DeviceSize size, vk::BufferUsageFlagBits usage);
     void mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, const auto& vec);
 
@@ -29,11 +28,15 @@ class Resources {
     vk::raii::DeviceMemory uniformBufferMemory{nullptr};
     vk::raii::DescriptorPool descriptorPool{nullptr};
     std::vector<vk::raii::DescriptorSet> descriptorSet{};
+
+    vk::raii::Framebuffer blitFramebuffer{nullptr};
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
 
     Resources(Renderer& renderer);
+    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void createframebuffers();
+    void createBlitFrameBuffer();
     ~Resources();
     void createResources();
     void createDescriptorPool();
