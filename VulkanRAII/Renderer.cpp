@@ -223,6 +223,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
     commandBuffer.endRenderPass();
 
+    transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eTransferSrcOptimal, commandBuffer, *pEngine->blitImage);
     /* BIG NOTE
     // barriers syncs things between all the commands which happen before the barrier
     // was inserted and all the commands which come after the barrier, what it means is that
@@ -461,22 +462,22 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
 
 
     if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
-        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
         memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
         sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
     } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR) {
-        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         memoryBarrier.dstAccessMask = vk::AccessFlagBits::eNoneKHR;
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destinationStage = vk::PipelineStageFlagBits::eBottomOfPipe;
-    } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferSrcOptimal) {
-        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    } else if (oldLayout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::eTransferSrcOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
         memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
 
     } 
