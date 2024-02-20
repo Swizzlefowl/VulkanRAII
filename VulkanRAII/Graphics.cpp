@@ -210,6 +210,10 @@ void Graphics::createRenderPass() {
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
 
+    // subpass external refers to the subpass outside our renderpass
+    // instance, it tell our subpass to wait until the layout transition
+    // is finished before we start writing to the color attachment
+    
     vk::SubpassDependency depedancy{};
     depedancy.srcSubpass = VK_SUBPASS_EXTERNAL;
     depedancy.dstSubpass = 0;

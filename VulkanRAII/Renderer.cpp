@@ -54,7 +54,7 @@ void Renderer::createInstance() {
         1,
         "renderer",
         1,
-        VK_API_VERSION_1_0};
+        VK_API_VERSION_1_3};
 
     vk::InstanceCreateInfo createInfo{};
     createInfo.pApplicationInfo = &appInfo;
@@ -223,9 +223,12 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
     commandBuffer.endRenderPass();
 
-    // BIG NOTE
-    // barriers syncs things between two commands it was inserted in
-    // for example, A B C where and A and C are commands and B is the barrier
+    /* BIG NOTE
+    // barriers syncs things between all the commands which happen before the barrier
+    // was inserted and all the commands which come after the barrier, what it means is that
+    // for all commands named C after barrier B was inserted needs to wait in their specified
+    // dst stages until all commands before the barrier named A have finised their operations
+    // specified in their src stage flags*/
     transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, pEngine->swapChainImages[imageIndex]);
    
     vk::ImageBlit region{};
@@ -398,7 +401,7 @@ void Renderer::setupDebugCallback() {
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
         debugCallback, nullptr);
-
+    
     // NOTE: Vulkan-hpp has methods for this, but they trigger linking errors...
     // instance->createDebugUtilsMessengerEXT(createInfo);
     // instance->createDebugUtilsMessengerEXTUnique(createInfo);
@@ -428,7 +431,7 @@ void Renderer::recreateSwapchain() {
         glfwWaitEvents();
     }
     try {
-        vkDeviceWaitIdle(*m_device);
+        m_device.waitIdle();
         cleanupSwapchain();
         pEngine->createSwapchain();
         pEngine->createImageViews();

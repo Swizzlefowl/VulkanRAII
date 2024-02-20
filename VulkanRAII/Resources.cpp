@@ -155,6 +155,7 @@ void Resources::createDescriptorPool() {
     createInfo.poolSizeCount = 1;
     createInfo.pPoolSizes = &poolSize;
     createInfo.maxSets = 1;
+    createInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
 
     try {
         descriptorPool = m_renderer.m_device.createDescriptorPool(createInfo);
