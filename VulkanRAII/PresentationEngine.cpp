@@ -19,7 +19,7 @@ vk::SurfaceFormatKHR PresentationEngine::chooseSwapSurfaceFormat(const std::vect
 
 vk::PresentModeKHR PresentationEngine::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> availablePresentModes) {
     for (const auto& presentMode : availablePresentModes)
-        if (presentMode == vk::PresentModeKHR::eMailbox)
+        if (presentMode == vk::PresentModeKHR::eFifoRelaxed)
             return presentMode;
     return vk::PresentModeKHR::eFifo;
 }

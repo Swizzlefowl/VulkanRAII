@@ -153,11 +153,17 @@ void Graphics::createGraphicsPipeline() {
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
     pipelineInfo.layout = *pipelineLayout;
-    pipelineInfo.renderPass = *renderPass;
+    //pipelineInfo.renderPass = *renderPass;
+    pipelineInfo.renderPass = VK_NULL_HANDLE;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex = -1;
 
+    vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
+    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    pipelineRenderingCreateInfo.pColorAttachmentFormats = &m_renderer.pEngine->swapChainImagesFormat;
+    // Chain into the pipeline creat einfo
+    pipelineInfo.pNext = &pipelineRenderingCreateInfo;
     graphicsPipeline = m_renderer.m_device.createGraphicsPipeline(nullptr, pipelineInfo);
 }
 

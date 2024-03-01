@@ -112,11 +112,15 @@ void Renderer::createDevice() {
     queueCreateInfo.queueCount = 1;
     queueCreateInfo.pQueuePriorities = &queuePriority;
 
-    vk::PhysicalDeviceFeatures deviceFeatures{};
+    vk::PhysicalDeviceFeatures2 deviceFeatures2{};
+    vk::PhysicalDeviceVulkan13Features device13{};
+    device13.dynamicRendering = true;
+    deviceFeatures2.pNext = &device13;
     vk::DeviceCreateInfo createInfo{};
+    createInfo.pNext = &deviceFeatures2;
     createInfo.queueCreateInfoCount = 1;
     createInfo.pQueueCreateInfos = &queueCreateInfo;
-    createInfo.pEnabledFeatures = &deviceFeatures;
+    
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
@@ -192,11 +196,28 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     std::vector<vk::Buffer> buffers{*pResources->posBuffer, *pResources->colorBuffer};
     std::vector<vk::DeviceSize> offsets{0, 0};
 
+    vk::RenderingInfo rInfo{};
+    vk::RenderingAttachmentInfo aInfo{};
+    aInfo.clearValue = clearColor;
+    aInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    aInfo.loadOp = vk::AttachmentLoadOp::eClear;
+    aInfo.storeOp = vk::AttachmentStoreOp::eStore;
+    aInfo.imageView = *pEngine->blitImageViews;
+
+    rInfo.colorAttachmentCount = 1;
+    rInfo.pColorAttachments = &aInfo;
+    rInfo.layerCount = 1;
+
+    rInfo.renderArea = vk::Rect2D{
+        {0, 0}, pEngine->swapChainExtent};
+
     commandBuffer.bindVertexBuffers(0, buffers, offsets);
     commandBuffer.bindIndexBuffer(*pResources->indexBuffer, 0, vk::IndexType::eUint16);
-    commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
 
+    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, commandBuffer, *pEngine->blitImage);
+    commandBuffer.beginRendering(rInfo);
+    //commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -221,7 +242,10 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
     //commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
     commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
-    commandBuffer.endRenderPass();
+    //commandBuffer.endRenderPass();
+    commandBuffer.endRendering();
+
+     //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
 
     transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eTransferSrcOptimal, commandBuffer, *pEngine->blitImage);
     /* BIG NOTE
@@ -355,7 +379,7 @@ void Renderer::drawFrame() {
         std::tie(result, imageIndex) = pEngine->m_swapChain.acquireNextImage(UINT64_MAX,
             *pResources->imageAvailableSemaphores);
     } catch (vk::Error& err) {
-        std::cout << "recreate the swap chain\n";
+        std::cout << err.what();
         recreateSwapchain();
         return;
     }
@@ -387,7 +411,7 @@ void Renderer::drawFrame() {
     try {
         result = m_queue.presentKHR(presentInfo);
     } catch (vk::Error& err) {
-        std::cout << "recreate the swapchain\n";
+        std::cout << err.what();
         recreateSwapchain();
     }
 }
@@ -479,6 +503,20 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
 
         sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
+
+    } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eColorAttachmentOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentRead;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+    } else if (oldLayout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eNone;
+
+        sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        destinationStage = vk::PipelineStageFlagBits::eBottomOfPipe;
 
     } 
     else {
