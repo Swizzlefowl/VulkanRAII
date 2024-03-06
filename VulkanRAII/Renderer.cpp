@@ -383,6 +383,14 @@ void Renderer::drawFrame() {
         recreateSwapchain();
         return;
     }
+    if (result == vk::Result::eSuboptimalKHR) {
+        recreateSwapchain();
+        vk::SemaphoreSignalInfo info{};
+        info.semaphore = *pResources->imageAvailableSemaphores;
+        info.value = 0;
+        m_device.signalSemaphore(info);
+        return;
+    }
 
     m_device.resetFences(*pResources->inFlightFences);
 
