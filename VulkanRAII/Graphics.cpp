@@ -162,7 +162,7 @@ void Graphics::createGraphicsPipeline() {
     vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
     pipelineRenderingCreateInfo.colorAttachmentCount = 1;
     pipelineRenderingCreateInfo.pColorAttachmentFormats = &m_renderer.pEngine->swapChainImagesFormat;
-    // Chain into the pipeline creat einfo
+    // Chain into the pipeline create info
     pipelineInfo.pNext = &pipelineRenderingCreateInfo;
     graphicsPipeline = m_renderer.m_device.createGraphicsPipeline(nullptr, pipelineInfo);
 }
@@ -203,7 +203,7 @@ void Graphics::createRenderPass() {
     colorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
     colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
     colorAttachment.initialLayout = vk::ImageLayout::eUndefined;
-    colorAttachment.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
     //colorAttachment.finalLayout = vk::ImageLayout::eTransferSrcOptimal;
 
     // a reference to our framebuffer attachment

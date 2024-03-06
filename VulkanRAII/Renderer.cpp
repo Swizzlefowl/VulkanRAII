@@ -2,7 +2,7 @@
 #include "Graphics.h"
 #include "PresentationEngine.h"
 #include "Resources.h"
-
+#include <thread>
 void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* resources) {
     pEngine = engine;
     pGraphics = Graphics;
@@ -184,8 +184,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     vk::RenderPassBeginInfo renderPassInfo{};
     renderPassInfo.renderPass = *pGraphics->renderPass;
-    //renderPassInfo.framebuffer = *pResources->frambebuffers[imageIndex];
-    renderPassInfo.framebuffer = *pResources->blitFramebuffer;
+    renderPassInfo.framebuffer = *pResources->frambebuffers[imageIndex];
+    //renderPassInfo.framebuffer = *pResources->blitFramebuffer;
     renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
     renderPassInfo.renderArea.extent = pEngine->swapChainExtent;
 
@@ -245,7 +245,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     //commandBuffer.endRenderPass();
     commandBuffer.endRendering();
 
-     //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
+    //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
 
     transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eTransferSrcOptimal, commandBuffer, *pEngine->blitImage);
     /* BIG NOTE
@@ -414,6 +414,9 @@ void Renderer::drawFrame() {
         std::cout << err.what();
         recreateSwapchain();
     }
+    if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+        recreateSwapchain();
+    }
 }
 
 // I really dont know how it works but it works
@@ -459,6 +462,7 @@ void Renderer::recreateSwapchain() {
         m_device.waitIdle();
         cleanupSwapchain();
         pEngine->createSwapchain();
+        pEngine->createSwapchainImages();
         pEngine->createImageViews();
         pResources->createframebuffers();
         pEngine->createBlitImage();
@@ -505,10 +509,10 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
 
     } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eColorAttachmentOptimal) {
-        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentRead;
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
         memoryBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
-        sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
     } else if (oldLayout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR) {
@@ -531,9 +535,9 @@ void Renderer::cleanupSwapchain() {
     for (auto& imageViews : pEngine->swapChainImageViews)
         imageViews.~ImageView();
     pEngine->m_swapChain.~SwapchainKHR();
-    pEngine->blitImage.~Image();
-    pEngine->blitImageMemory.~DeviceMemory();
     pEngine->blitImageViews.~ImageView();
+    pEngine->blitImage.clear();
+    pEngine->blitImageMemory.~DeviceMemory();
 }
 
 Renderer::Colors Renderer::checkUserInput() {
