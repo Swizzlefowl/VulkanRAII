@@ -371,7 +371,7 @@ void Renderer::drawFrame() {
     vk::Result result;
     uint32_t imageIndex{};
 
-    // unfortunately vk raii seems to throw an exception if you cant present
+    // unfortunately vk raii seems to throw an exception only on Nvidia if you cant present
     //  or aquire images anymore because the surface is incompatible
     //  so the try catch blocks are necessary to successfully recreate
     //  the swapchain
@@ -383,12 +383,8 @@ void Renderer::drawFrame() {
         recreateSwapchain();
         return;
     }
-    if (result == vk::Result::eSuboptimalKHR) {
+    if (result == vk::Result::eSuboptimalKHR || result == vk::Result:: eErrorOutOfDateKHR) {
         recreateSwapchain();
-        vk::SemaphoreSignalInfo info{};
-        info.semaphore = *pResources->imageAvailableSemaphores;
-        info.value = 0;
-        m_device.signalSemaphore(info);
         return;
     }
 
@@ -419,7 +415,7 @@ void Renderer::drawFrame() {
     try {
         result = m_queue.presentKHR(presentInfo);
     } catch (vk::Error& err) {
-        std::cout << err.what();
+        std::cerr << err.what();
         recreateSwapchain();
     }
     if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
@@ -469,6 +465,9 @@ void Renderer::recreateSwapchain() {
     try {
         m_device.waitIdle();
         cleanupSwapchain();
+        pResources->imageAvailableSemaphores.clear();
+        vk::SemaphoreCreateInfo semaphoreInfo{};
+        pResources->imageAvailableSemaphores = m_device.createSemaphore(semaphoreInfo);
         pEngine->createSwapchain();
         pEngine->createSwapchainImages();
         pEngine->createImageViews();

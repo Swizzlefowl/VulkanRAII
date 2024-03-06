@@ -50,9 +50,8 @@ void PresentationEngine::createImageViews() {
     // if you dont do it this way it will throw an exception when
     // recreating the swapchain
 
-    std::vector<vk::Image> images = m_swapChain.getImages();
     std::vector<vk::raii::ImageView> imageviews{};
-    for (auto& image : images) {
+    for (auto& image : swapChainImages) {
         vk::ImageViewCreateInfo createInfo{};
         createInfo.image = image;
         createInfo.format = swapChainImagesFormat;
