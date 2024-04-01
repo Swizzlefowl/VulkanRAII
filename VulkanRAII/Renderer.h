@@ -30,6 +30,13 @@ class Renderer {
     //  of declaration
 
     // arrays for triangle attributes
+    struct Vertex {
+        glm::vec3 pos{};
+        glm::vec3 color{};
+    };
+
+    std::vector<Vertex> vertices{};
+
     const std::vector<glm::vec3> pos{
         {-0.5f, -0.5f, 0.0f},
         {0.5f, -0.5f, 0.0f},
@@ -55,7 +62,7 @@ class Renderer {
     vk::raii::PhysicalDevices m_physicalDevices{nullptr};
     vk::raii::PhysicalDevice m_physicalDevice{nullptr};
     vk::raii::Device m_device{nullptr};
-    std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME};
     //  member variables for debugging
     std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
     VkDebugUtilsMessengerEXT callback{};

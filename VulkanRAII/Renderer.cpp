@@ -114,6 +114,13 @@ void Renderer::createDevice() {
 
     vk::PhysicalDeviceFeatures2 deviceFeatures2{};
     vk::PhysicalDeviceVulkan13Features device13{};
+    vk::PhysicalDeviceFeatures2 features2{};
+    vk::PhysicalDeviceVulkan13Features features13{};
+    features2.pNext = &features13;
+    (*m_physicalDevice).getFeatures2(&features2);
+    auto prop = reinterpret_cast<vk::PhysicalDeviceVulkan13Features*>(features2.pNext);
+    if (prop->synchronization2 && prop->dynamicRendering)
+        std::cout << " WE GAMING";
     device13.dynamicRendering = true;
     deviceFeatures2.pNext = &device13;
     vk::DeviceCreateInfo createInfo{};

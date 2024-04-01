@@ -126,19 +126,25 @@ Resources::~Resources() {
 }
 
 void Resources::createResources() {
+
+    for (size_t index{}; index < 4; index++) {
+        Renderer::Vertex vertex{.pos = m_renderer.pos[index], .color = m_renderer.color[index]};
+        m_renderer.vertices.push_back(vertex);
+    }
     createframebuffers();
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
-    vk::DeviceSize posSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.pos[0]) * m_renderer.pos.size());
+    vk::DeviceSize vertexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.vertices[0]) * m_renderer.vertices.size());
     vk::DeviceSize colorSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size());
     vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
     vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
-    createBuffers(posBuffer, posBufferMemory, posSize, vk::BufferUsageFlagBits::eVertexBuffer);
+    createBuffers(posBuffer, posBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
     createBuffers(colorBuffer, colorBufferMemory, colorSize, vk::BufferUsageFlagBits::eVertexBuffer);
     createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
     createBuffers(uniformBuffer, uniformBufferMemory, uboSize, vk::BufferUsageFlagBits::eUniformBuffer);
-    mapMemory(posBufferMemory, posSize, m_renderer.pos);
+    auto vertexPtr = posBufferMemory.mapMemory(0, vertexSize);
+    memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
     mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
     colorPtr = colorBufferMemory.mapMemory(0, colorSize);
     memcpy(colorPtr, m_renderer.color.data(), colorSize);

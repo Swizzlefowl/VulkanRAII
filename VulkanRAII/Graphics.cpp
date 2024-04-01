@@ -45,7 +45,7 @@ void Graphics::createGraphicsPipeline() {
 
     vk::VertexInputBindingDescription bindingDescription{};
     bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(glm::vec3);
+    bindingDescription.stride = sizeof(Renderer::Vertex);
     bindingDescription.inputRate = vk::VertexInputRate::eVertex;
 
     vk::VertexInputBindingDescription bindingDescription2{};
@@ -56,21 +56,26 @@ void Graphics::createGraphicsPipeline() {
     std::vector<vk::VertexInputBindingDescription> bindings{
         bindingDescription, bindingDescription2};
 
-    std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions{};
+    std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
     attributeDescriptions[0].format = vk::Format::eR32G32B32Sfloat;
     attributeDescriptions[0].offset = 0;
 
-    attributeDescriptions[1].binding = 1;
+    attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
-    attributeDescriptions[1].offset = 0;
+    attributeDescriptions[1].offset = offsetof(Renderer::Vertex, Renderer::Vertex::color);
+
+    attributeDescriptions[2].binding = 1;
+    attributeDescriptions[2].location = 2;
+    attributeDescriptions[2].format = vk::Format::eR32G32B32Sfloat;
+    attributeDescriptions[2].offset = 0;
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.vertexBindingDescriptionCount = 2;
+    vertexInputInfo.vertexBindingDescriptionCount = bindings.size();
     vertexInputInfo.pVertexBindingDescriptions = bindings.data();
-    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+    vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
