@@ -42,5 +42,8 @@ class Resources {
     void createResources();
     void createDescriptorPool();
     void allocateDescriptorSets();
+    void createBuffer(vk::Buffer& buffer, vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation);
+    void mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size);
+    void* mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size);
     void loadImage();
 };

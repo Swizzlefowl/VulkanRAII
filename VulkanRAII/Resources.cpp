@@ -200,6 +200,40 @@ void Resources::allocateDescriptorSets() {
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
 
+void Resources::createBuffer(vk::Buffer& buffer, vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation) {
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    auto result = vmaCreateBuffer(m_renderer.allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocInfo, reinterpret_cast<VkBuffer*>(&buffer), &allocation, nullptr);
+
+    if (result != VkResult::VK_SUCCESS)
+        std::cerr << "creating vkBuffer failed\n";
+}
+
+void Resources::mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size) {
+    void* stagingMappedPtr{nullptr};
+    vmaMapMemory(m_renderer.allocator, allocation, &stagingMappedPtr);
+
+    if (!stagingMappedPtr)
+        throw std::runtime_error("memory couldn't be mapped");
+
+    memcpy(stagingMappedPtr, src, size);
+    vmaFlushAllocation(m_renderer.allocator, allocation, 0, size);
+    vmaUnmapMemory(m_renderer.allocator, allocation);
+}
+
+void* Resources::mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size) {
+    void* ptr{nullptr};
+    vmaMapMemory(m_renderer.allocator, allocation, &ptr);
+
+    if (!ptr)
+        throw std::runtime_error("memory couldn't be persistently mapped");
+}
+
 void Resources::loadImage() {
     int texWidth{};
     int texHeight{};
@@ -211,25 +245,10 @@ void Resources::loadImage() {
     if (!pixels)
         throw std::runtime_error("failed to load image!");
 
-    vk::BufferCreateInfo bufferInfo{};
-    bufferInfo.size = imageSize;
-    bufferInfo.usage = vk::BufferUsageFlagBits::eTransferSrc;
-
     vk::Buffer stagingBuffer{};
-    VmaAllocationCreateInfo allocInfo{};
-    allocInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     VmaAllocation allocation{};
-    auto result = vmaCreateBuffer(m_renderer.allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocInfo, reinterpret_cast<VkBuffer*>(&stagingBuffer), &allocation, nullptr);
-
-    if (result != VkResult::VK_SUCCESS)
-        std::cerr << "creating vkBuffer failed\n";
-
-    void* stagingMappedPtr{nullptr};
-    vmaMapMemory(m_renderer.allocator, allocation, &stagingMappedPtr);
-    memcpy(stagingMappedPtr, pixels, imageSize);
-    vmaFlushAllocation(m_renderer.allocator, allocation, 0, imageSize);
-    vmaUnmapMemory(m_renderer.allocator, allocation);
+    createBuffer(stagingBuffer, vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation);
+    mapMemory(m_renderer.allocator, allocation, pixels, imageSize);
     stbi_image_free(pixels);
     vmaDestroyBuffer(m_renderer.allocator, stagingBuffer, allocation);
 }
