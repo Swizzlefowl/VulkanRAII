@@ -29,7 +29,7 @@ class Resources {
     vk::raii::DescriptorPool descriptorPool{nullptr};
     std::vector<vk::raii::DescriptorSet> descriptorSet{};
     vk::Buffer textureBuffer{};
-    //VmaAllocation texBufferAllocation;
+    VmaAllocation texallocation;
     vk::raii::Framebuffer blitFramebuffer{nullptr};
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
@@ -42,8 +42,9 @@ class Resources {
     void createResources();
     void createDescriptorPool();
     void allocateDescriptorSets();
-    void createBuffer(vk::Buffer& buffer, vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation);
+    vk::raii::Buffer createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation);
     void mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size);
     void* mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size);
     void loadImage();
+    vk::raii::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation);
 };

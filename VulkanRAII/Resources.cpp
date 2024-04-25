@@ -200,26 +200,30 @@ void Resources::allocateDescriptorSets() {
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
 
-void Resources::createBuffer(vk::Buffer& buffer, vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation) {
+vk::raii::Buffer Resources::createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation) {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = size;
     bufferInfo.usage = usage;
 
     VmaAllocationCreateInfo allocInfo{};
-    allocInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocInfo.flags = createFlags;
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    vk::Buffer buffer{};
     auto result = vmaCreateBuffer(m_renderer.allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocInfo, reinterpret_cast<VkBuffer*>(&buffer), &allocation, nullptr);
 
     if (result != VkResult::VK_SUCCESS)
         std::cerr << "creating vkBuffer failed\n";
+
+    return vk::raii::Buffer{m_renderer.m_device, buffer};
 }
 
 void Resources::mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size) {
     void* stagingMappedPtr{nullptr};
-    vmaMapMemory(m_renderer.allocator, allocation, &stagingMappedPtr);
+    auto result = vmaMapMemory(m_renderer.allocator, allocation, &stagingMappedPtr);
 
-    if (!stagingMappedPtr)
-        throw std::runtime_error("memory couldn't be mapped");
+    if (result != VkResult::VK_SUCCESS)
+        throw std::runtime_error("map memory failed");
 
     memcpy(stagingMappedPtr, src, size);
     vmaFlushAllocation(m_renderer.allocator, allocation, 0, size);
@@ -228,10 +232,11 @@ void Resources::mapMemory(const VmaAllocator& allocator, const VmaAllocation& al
 
 void* Resources::mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size) {
     void* ptr{nullptr};
-    vmaMapMemory(m_renderer.allocator, allocation, &ptr);
+    auto result = vmaMapMemory(m_renderer.allocator, allocation, &ptr);
 
-    if (!ptr)
-        throw std::runtime_error("memory couldn't be persistently mapped");
+    if (result != VkResult::VK_SUCCESS)
+        throw std::runtime_error("persistent map memory failed");
+    return ptr;
 }
 
 void Resources::loadImage() {
@@ -245,10 +250,44 @@ void Resources::loadImage() {
     if (!pixels)
         throw std::runtime_error("failed to load image!");
 
-    vk::Buffer stagingBuffer{};
-    VmaAllocation allocation{};
-    createBuffer(stagingBuffer, vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation);
+    vk::raii::Buffer stagingBuffer{nullptr};
+    VmaAllocation allocation{nullptr};
+    stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation);
     mapMemory(m_renderer.allocator, allocation, pixels, imageSize);
+
+    VmaAllocation texImageAlloc{nullptr};
+    auto texImage = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, m_renderer.allocator, texImageAlloc);
     stbi_image_free(pixels);
-    vmaDestroyBuffer(m_renderer.allocator, stagingBuffer, allocation);
+    stagingBuffer.clear();
+    texImage.clear();
+    vmaFreeMemory(m_renderer.allocator, texImageAlloc);
+    vmaFreeMemory(m_renderer.allocator, allocation);
 }
+
+vk::raii::Image Resources::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation) {
+    vk::ImageCreateInfo imageInfo{};
+    imageInfo.imageType = vk::ImageType::e2D;
+    imageInfo.extent.width = static_cast<uint32_t>(width);
+    imageInfo.extent.height = static_cast<uint32_t>(height);
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.usage = usage;
+    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+    imageInfo.tiling = tiling;
+    imageInfo.sharingMode = vk::SharingMode::eExclusive;
+    imageInfo.samples = vk::SampleCountFlagBits::e1;
+
+    vk::Image image{};
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.flags = createFlags;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    auto result = vmaCreateImage(allocator, reinterpret_cast<VkImageCreateInfo*>(&imageInfo), &allocInfo, reinterpret_cast<VkImage*>(&image), &allocation, nullptr);
+
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("image creation failed");
+    }
+    return vk::raii::Image{m_renderer.m_device, image};
+    }
