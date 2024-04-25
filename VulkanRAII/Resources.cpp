@@ -2,7 +2,7 @@
 #include "Graphics.h"
 #include "PresentationEngine.h"
 #include "Renderer.h"
-
+#include "stb_image.h"
 // the attachments refer to the vkImage views which itself is a view into
 // our swapchain images
 void Resources::createframebuffers() {
@@ -198,4 +198,38 @@ void Resources::allocateDescriptorSets() {
     descriptorWrite.pTexelBufferView = nullptr; // Optional
 
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
+}
+
+void Resources::loadImage() {
+    int texWidth{};
+    int texHeight{};
+    int texChannels{};
+    stbi_uc* pixels{nullptr};
+    pixels = stbi_load("statue.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    vk::DeviceSize imageSize{static_cast<vk::DeviceSize>(texWidth * texHeight * 4)};
+
+    if (!pixels)
+        throw std::runtime_error("failed to load image!");
+
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.size = imageSize;
+    bufferInfo.usage = vk::BufferUsageFlagBits::eTransferSrc;
+
+    vk::Buffer stagingBuffer{};
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    VmaAllocation allocation{};
+    auto result = vmaCreateBuffer(m_renderer.allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocInfo, reinterpret_cast<VkBuffer*>(&stagingBuffer), &allocation, nullptr);
+
+    if (result != VkResult::VK_SUCCESS)
+        std::cerr << "creating vkBuffer failed\n";
+
+    void* stagingMappedPtr{nullptr};
+    vmaMapMemory(m_renderer.allocator, allocation, &stagingMappedPtr);
+    memcpy(stagingMappedPtr, pixels, imageSize);
+    vmaFlushAllocation(m_renderer.allocator, allocation, 0, imageSize);
+    vmaUnmapMemory(m_renderer.allocator, allocation);
+    stbi_image_free(pixels);
+    vmaDestroyBuffer(m_renderer.allocator, stagingBuffer, allocation);
 }

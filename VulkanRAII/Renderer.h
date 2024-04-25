@@ -1,5 +1,6 @@
 #pragma once
 #include "commonIncludes.h"
+#include "vma/vk_mem_alloc.h"
 #include <random>
 // clang formats puts the glfw include above the vulkan include which breaks the program
 // remeber to put it in the correct place after formatting
@@ -63,6 +64,7 @@ class Renderer {
     vk::raii::PhysicalDevice m_physicalDevice{nullptr};
     vk::raii::Device m_device{nullptr};
     std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME};
+    VmaAllocator allocator{};
     //  member variables for debugging
     std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
     VkDebugUtilsMessengerEXT callback{};
@@ -99,6 +101,7 @@ class Renderer {
     void pickPhysicalDevice();
     bool isDeviceSuitable(vk::raii::PhysicalDevice device, vk::PhysicalDeviceType deviceType);
     bool checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device);
+    void createAllocator();
     void mainLoop();
     void recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex);
     void createRandomNumberGenerator();

@@ -142,6 +142,8 @@
     <ClCompile Include="PresentationEngine.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Resources.cpp" />
+    <ClCompile Include="stbImage.cpp" />
+    <ClCompile Include="VMA.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="commonIncludes.h" />

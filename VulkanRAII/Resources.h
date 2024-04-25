@@ -1,6 +1,6 @@
 #pragma once
 #include "commonIncludes.h"
-
+#include "vma/vk_mem_alloc.h"
 class Renderer;
 class Resources {
   private:
@@ -28,7 +28,8 @@ class Resources {
     vk::raii::DeviceMemory uniformBufferMemory{nullptr};
     vk::raii::DescriptorPool descriptorPool{nullptr};
     std::vector<vk::raii::DescriptorSet> descriptorSet{};
-
+    vk::Buffer textureBuffer{};
+    //VmaAllocation texBufferAllocation;
     vk::raii::Framebuffer blitFramebuffer{nullptr};
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
@@ -41,4 +42,5 @@ class Resources {
     void createResources();
     void createDescriptorPool();
     void allocateDescriptorSets();
+    void loadImage();
 };

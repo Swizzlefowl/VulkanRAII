@@ -28,6 +28,7 @@ void Renderer::initVulkan() {
     setupDebugCallback();
     pEngine->createSurface();
     createDevice();
+    createAllocator();
     pEngine->createSwapchain();
     pEngine->createSwapchainImages();
     pEngine->createImageViews();
@@ -42,6 +43,7 @@ void Renderer::initVulkan() {
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
     pResources->createBlitFrameBuffer();
+    pResources->loadImage();
     listExtensionNames();
 }
 
@@ -629,6 +631,16 @@ bool Renderer::checkDeviceExtensionSuppport(vk::raii::PhysicalDevice device) {
     return requiredExtensions.empty();
 }
 
+void Renderer::createAllocator() {
+    VmaAllocatorCreateInfo info{};
+    info.vulkanApiVersion = VK_API_VERSION_1_3;
+    info.instance = *m_instance;
+    info.physicalDevice = *m_physicalDevice;
+    info.device = *m_device;
+   
+   vmaCreateAllocator(&info, &allocator);
+}
+
 void Renderer::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     auto app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
@@ -646,6 +658,7 @@ Renderer::~Renderer() {
     pEngine->m_swapChain.clear();
     m_physicalDevice.clear();
     m_physicalDevices.clear();
+    vmaDestroyAllocator(allocator);
     m_device.clear();
     pEngine->m_surface.clear();
     if (debug)
