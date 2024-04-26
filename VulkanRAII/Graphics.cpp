@@ -7,17 +7,24 @@ Graphics::Graphics(Renderer& renderer)
 }
 
 void Graphics::createDescriptorLayout() {
-    vk::DescriptorSetLayoutBinding binding{};
+    std::array<vk::DescriptorSetLayoutBinding, 2> bindings{};
     vk::DescriptorSetLayoutCreateInfo createInfo{};
 
-    binding.binding = 0;
-    binding.descriptorCount = 1;
-    binding.descriptorType = vk::DescriptorType::eUniformBuffer;
-    binding.stageFlags = vk::ShaderStageFlagBits::eVertex;
-    binding.pImmutableSamplers = nullptr;
 
-    createInfo.bindingCount = 1;
-    createInfo.pBindings = &binding;
+    bindings[0].binding = 0;
+    bindings[0].descriptorCount = 1;
+    bindings[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+    bindings[0].stageFlags = vk::ShaderStageFlagBits::eVertex;
+    bindings[0].pImmutableSamplers = nullptr;
+
+    bindings[1].binding = 1;
+    bindings[1].descriptorCount = 1;
+    bindings[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    bindings[1].stageFlags = vk::ShaderStageFlagBits::eFragment;
+    bindings[1].pImmutableSamplers = nullptr;
+
+    createInfo.bindingCount = bindings.size();
+    createInfo.pBindings = bindings.data();
 
     try {
         descriptorSetLayout = m_renderer.m_device.createDescriptorSetLayout(createInfo);
@@ -48,13 +55,8 @@ void Graphics::createGraphicsPipeline() {
     bindingDescription.stride = sizeof(Renderer::Vertex);
     bindingDescription.inputRate = vk::VertexInputRate::eVertex;
 
-    vk::VertexInputBindingDescription bindingDescription2{};
-    bindingDescription2.binding = 1;
-    bindingDescription2.stride = sizeof(glm::vec3);
-    bindingDescription2.inputRate = vk::VertexInputRate::eVertex;
-
     std::vector<vk::VertexInputBindingDescription> bindings{
-        bindingDescription, bindingDescription2};
+        bindingDescription};
 
     std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
@@ -67,10 +69,10 @@ void Graphics::createGraphicsPipeline() {
     attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
     attributeDescriptions[1].offset = offsetof(Renderer::Vertex, Renderer::Vertex::color);
 
-    attributeDescriptions[2].binding = 1;
+    attributeDescriptions[2].binding = 0;
     attributeDescriptions[2].location = 2;
-    attributeDescriptions[2].format = vk::Format::eR32G32B32Sfloat;
-    attributeDescriptions[2].offset = 0;
+    attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
+    attributeDescriptions[2].offset = offsetof(Renderer::Vertex, Renderer::Vertex::texCoord);
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.vertexBindingDescriptionCount = bindings.size();

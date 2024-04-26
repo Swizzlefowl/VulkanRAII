@@ -122,44 +122,38 @@ Resources::Resources(Renderer& renderer)
 }
 
 Resources::~Resources() {
-    colorBufferMemory.unmapMemory();
+
 }
 
 void Resources::createResources() {
-
-    for (size_t index{}; index < 4; index++) {
-        Renderer::Vertex vertex{.pos = m_renderer.pos[index], .color = m_renderer.color[index]};
-        m_renderer.vertices.push_back(vertex);
-    }
     createframebuffers();
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
     vk::DeviceSize vertexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.vertices[0]) * m_renderer.vertices.size());
-    vk::DeviceSize colorSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.color[0]) * m_renderer.color.size());
     vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
     vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
-    createBuffers(posBuffer, posBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
-    createBuffers(colorBuffer, colorBufferMemory, colorSize, vk::BufferUsageFlagBits::eVertexBuffer);
+    createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
     createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
     createBuffers(uniformBuffer, uniformBufferMemory, uboSize, vk::BufferUsageFlagBits::eUniformBuffer);
-    auto vertexPtr = posBufferMemory.mapMemory(0, vertexSize);
+    auto vertexPtr = vertexBufferMemory.mapMemory(0, vertexSize);
     memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
     mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
-    colorPtr = colorBufferMemory.mapMemory(0, colorSize);
-    memcpy(colorPtr, m_renderer.color.data(), colorSize);
     uboPtr = uniformBufferMemory.mapMemory(0, uboSize);
-    posBufferMemory.unmapMemory();
+    vertexBufferMemory.unmapMemory();
     indexBufferMemory.unmapMemory();
 }
 
 void Resources::createDescriptorPool() {
-    vk::DescriptorPoolSize poolSize{};
-    poolSize.type = vk::DescriptorType::eUniformBuffer;
-    poolSize.descriptorCount = 1;
+    std::array<vk::DescriptorPoolSize, 2> poolSize{};
+    poolSize[0].type = vk::DescriptorType::eUniformBuffer;
+    poolSize[0].descriptorCount = 1;
+
+     poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
+     poolSize[1].descriptorCount = 1;
     vk::DescriptorPoolCreateInfo createInfo{};
-    createInfo.poolSizeCount = 1;
-    createInfo.pPoolSizes = &poolSize;
+    createInfo.poolSizeCount = poolSize.size();
+    createInfo.pPoolSizes = poolSize.data();
     createInfo.maxSets = 1;
     createInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
 
@@ -187,15 +181,25 @@ void Resources::allocateDescriptorSets() {
     bufferInfo.offset = 0;
     bufferInfo.range = sizeof(Renderer::MeshPushConstants);
 
-    vk::WriteDescriptorSet descriptorWrite{};
-    descriptorWrite.dstSet = *descriptorSet[0];
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pBufferInfo = &bufferInfo;
-    descriptorWrite.pImageInfo = nullptr; // Optional
-    descriptorWrite.pTexelBufferView = nullptr; // Optional
+    vk::DescriptorImageInfo imageInfo{};
+    imageInfo.imageView = *texImageView;
+    imageInfo.sampler = *texSampler;
+    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    std::array<vk::WriteDescriptorSet, 2> descriptorWrite{};
+    descriptorWrite[0].dstSet = *descriptorSet[0];
+    descriptorWrite[0].dstBinding = 0;
+    descriptorWrite[0].dstArrayElement = 0;
+    descriptorWrite[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+    descriptorWrite[0].descriptorCount = 1;
+    descriptorWrite[0].pBufferInfo = &bufferInfo;
+
+    descriptorWrite[1].dstSet = *descriptorSet[0];
+    descriptorWrite[1].dstBinding = 1;
+    descriptorWrite[1].dstArrayElement = 0;
+    descriptorWrite[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    descriptorWrite[1].descriptorCount = 1;
+    descriptorWrite[1].pImageInfo = &imageInfo;
 
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
@@ -255,13 +259,32 @@ void Resources::loadImage() {
     stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation);
     mapMemory(m_renderer.allocator, allocation, pixels, imageSize);
 
-    VmaAllocation texImageAlloc{nullptr};
-    auto texImage = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, m_renderer.allocator, texImageAlloc);
+    texImage = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, m_renderer.allocator, texImageAlloc);
+
+    auto commandBuffer{createSingleTimeCB()};
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    commandBuffer.begin(beginInfo);
+
+    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, *texImage);
+    copyBufferToImage(commandBuffer, stagingBuffer, *texImage, static_cast<std::uint32_t>(texWidth), static_cast<std::uint32_t>(texHeight));
+    m_renderer.transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, commandBuffer, *texImage);
+
+   commandBuffer.end();
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &*commandBuffer;
+    m_renderer.m_queue.submit(submitInfo);
+    m_renderer.m_queue.waitIdle();
+
+    texImageView = createImageView(*texImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
+    texSampler = createSampler();
+    commandBuffer.clear();
     stbi_image_free(pixels);
     stagingBuffer.clear();
-    texImage.clear();
-    vmaFreeMemory(m_renderer.allocator, texImageAlloc);
     vmaFreeMemory(m_renderer.allocator, allocation);
+    
 }
 
 vk::raii::Image Resources::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation) {
@@ -290,4 +313,78 @@ vk::raii::Image Resources::createImage(uint32_t width, uint32_t height, vk::Form
         throw std::runtime_error("image creation failed");
     }
     return vk::raii::Image{m_renderer.m_device, image};
-    }
+}
+
+vk::raii::CommandBuffer Resources::createSingleTimeCB() {
+    vk::CommandBufferAllocateInfo allocInfo{};
+    allocInfo.level = vk::CommandBufferLevel::ePrimary;
+    allocInfo.commandBufferCount = 1;
+    allocInfo.commandPool = *commandPool;
+
+    vk::raii::CommandBuffer commandBuffer{nullptr};
+    commandBuffer =  std::move(m_renderer.m_device.allocateCommandBuffers(allocInfo)[0]);
+    return commandBuffer;
+}
+
+vk::raii::ImageView Resources::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags) {
+    vk::ImageViewCreateInfo createInfo{};
+    createInfo.image = image;
+    createInfo.viewType = vk::ImageViewType::e2D;
+    createInfo.format = format;
+
+    vk::ComponentMapping mappings{
+        vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
+        vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity};
+    createInfo.components = mappings;
+
+    // base	MipmapLevel = 0, levelcount = 1, baseArrayLayer = 0, layerCount
+    // =
+    // 1
+    vk::ImageSubresourceRange imageSubResource{aspectFlags,
+        0, 1, 0, 1};
+    createInfo.subresourceRange = imageSubResource;
+
+    return m_renderer.m_device.createImageView(createInfo);
+}
+
+vk::raii::Sampler Resources::createSampler() {
+    vk::PhysicalDeviceProperties deviceProperties = m_renderer.m_physicalDevice.getProperties();
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = vk::Filter::eLinear;
+    samplerInfo.minFilter = vk::Filter::eLinear;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = deviceProperties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueBlack;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eAlways;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+
+    return m_renderer.m_device.createSampler(samplerInfo);
+}
+
+void Resources::copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height) {
+    vk::BufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = vk::Offset3D{0, 0, 0};
+    region.imageExtent = vk::Extent3D{
+        width,
+        height,
+        1};
+
+    commandBuffer.copyBufferToImage(*buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
+}

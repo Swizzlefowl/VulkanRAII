@@ -39,11 +39,11 @@ void Renderer::initVulkan() {
     pGraphics->createGraphicsPipeline();
     pResources->createResources();
     pResources->createDescriptorPool();
+    pResources->loadImage();
     pResources->allocateDescriptorSets();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
     pResources->createBlitFrameBuffer();
-    pResources->loadImage();
     listExtensionNames();
 }
 
@@ -116,13 +116,7 @@ void Renderer::createDevice() {
 
     vk::PhysicalDeviceFeatures2 deviceFeatures2{};
     vk::PhysicalDeviceVulkan13Features device13{};
-    vk::PhysicalDeviceFeatures2 features2{};
-    vk::PhysicalDeviceVulkan13Features features13{};
-    features2.pNext = &features13;
-    (*m_physicalDevice).getFeatures2(&features2);
-    auto prop = reinterpret_cast<vk::PhysicalDeviceVulkan13Features*>(features2.pNext);
-    if (prop->synchronization2 && prop->dynamicRendering)
-        std::cout << " WE GAMING";
+    deviceFeatures2.features.samplerAnisotropy = true;
     device13.dynamicRendering = true;
     deviceFeatures2.pNext = &device13;
     vk::DeviceCreateInfo createInfo{};
@@ -181,7 +175,7 @@ void Renderer::listExtensionNames() {
 void Renderer::mainLoop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        changeColor(checkUserInput());
+        //changeColor(checkUserInput());
         drawFrame();
     }
     m_device.waitIdle();
@@ -202,8 +196,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    std::vector<vk::Buffer> buffers{*pResources->posBuffer, *pResources->colorBuffer};
-    std::vector<vk::DeviceSize> offsets{0, 0};
+    std::vector<vk::Buffer> buffers{*pResources->vertexBuffer};
+    std::vector<vk::DeviceSize> offsets{0};
 
     vk::RenderingInfo rInfo{};
     vk::RenderingAttachmentInfo aInfo{};
@@ -538,6 +532,13 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
         sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
         destinationStage = vk::PipelineStageFlagBits::eBottomOfPipe;
 
+    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
+        destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+
     } 
     else {
         throw std::invalid_argument("unsupported layout transition!");
@@ -658,6 +659,10 @@ Renderer::~Renderer() {
     pEngine->m_swapChain.clear();
     m_physicalDevice.clear();
     m_physicalDevices.clear();
+    pResources->texSampler.clear();
+    pResources->texImageView.clear();
+    pResources->texImage.clear();
+    vmaFreeMemory(allocator, pResources->texImageAlloc);
     vmaDestroyAllocator(allocator);
     m_device.clear();
     pEngine->m_surface.clear();

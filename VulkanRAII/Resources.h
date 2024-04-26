@@ -18,10 +18,8 @@ class Resources {
     vk::raii::Semaphore imageAvailableSemaphores{nullptr};
     vk::raii::Semaphore finishedRenderingSemaphores{nullptr};
     vk::raii::Fence inFlightFences{nullptr};
-    vk::raii::Buffer posBuffer{nullptr};
-    vk::raii::DeviceMemory posBufferMemory{nullptr};
-    vk::raii::Buffer colorBuffer{nullptr};
-    vk::raii::DeviceMemory colorBufferMemory{nullptr};
+    vk::raii::Buffer vertexBuffer{nullptr};
+    vk::raii::DeviceMemory vertexBufferMemory{nullptr};
     vk::raii::Buffer indexBuffer{nullptr};
     vk::raii::DeviceMemory indexBufferMemory{nullptr};
     vk::raii::Buffer uniformBuffer{nullptr};
@@ -31,6 +29,10 @@ class Resources {
     vk::Buffer textureBuffer{};
     VmaAllocation texallocation;
     vk::raii::Framebuffer blitFramebuffer{nullptr};
+    vk::raii::Image texImage{nullptr};
+    VmaAllocation texImageAlloc{nullptr};
+    vk::raii::ImageView texImageView{nullptr};
+    vk::raii::Sampler texSampler{nullptr};
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
 
@@ -47,4 +49,9 @@ class Resources {
     void* mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size);
     void loadImage();
     vk::raii::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation);
+    vk::raii::CommandBuffer createSingleTimeCB();
+    vk::raii::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+    vk::raii::Sampler createSampler();
+    void copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height);
+
 };
