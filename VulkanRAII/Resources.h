@@ -33,6 +33,9 @@ class Resources {
     VmaAllocation texImageAlloc{nullptr};
     vk::raii::ImageView texImageView{nullptr};
     vk::raii::Sampler texSampler{nullptr};
+    VmaAllocation depthAlloc{nullptr};
+    vk::raii::Image depthImage{nullptr};
+    vk::raii::ImageView depthImageView{nullptr};
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
 
@@ -52,6 +55,7 @@ class Resources {
     vk::raii::CommandBuffer createSingleTimeCB();
     vk::raii::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags);
     vk::raii::Sampler createSampler();
+    void createDepthBuffer();
     void copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height);
 
 };

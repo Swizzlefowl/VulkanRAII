@@ -2,15 +2,52 @@
 #include "Graphics.h"
 #include "PresentationEngine.h"
 #include "Resources.h"
-#include <thread>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <chrono>
 void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* resources) {
     pEngine = engine;
     pGraphics = Graphics;
     pResources = resources;
+
+     Assimp::Importer importer{};
+    auto scene = importer.ReadFile("viking_room.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    
+    if (!scene)
+        throw std::runtime_error("you done fucked up");
+    std::cout << scene->mNumMeshes;
+    auto mesh = scene->mMeshes[0];
+     for (size_t index{}; index < scene->mMeshes[0]->mNumVertices; index++) {
+        Vertex vertice{};
+        
+        vertice.pos.r = mesh->mVertices[index].x;
+        vertice.pos.g = mesh->mVertices[index].y;
+        vertice.pos.b = mesh->mVertices[index].z;
+
+        vertice.color.r = 1.0;
+        vertice.color.g = 1.0;
+        vertice.color.b = 1.0;
+
+        vertice.texCoord.r = mesh->mTextureCoords[0][index].x;
+        vertice.texCoord.g = mesh->mTextureCoords[0][index].y;
+        vertices.emplace_back(vertice);
+    }
+
+     for (int index{}; index < mesh->mNumFaces; index++) {
+        const auto& face = mesh->mFaces[index];
+        for (int jIndex{}; jIndex < face.mNumIndices; jIndex++) {
+            std::uint32_t indice = face.mIndices[jIndex];
+            indices.emplace_back(indice);
+         }
+     }
+
     createRandomNumberGenerator();
     initWindow();
     initVulkan();
     mainLoop();
+
+   
 }
 
 void Renderer::initWindow() {
@@ -44,6 +81,7 @@ void Renderer::initVulkan() {
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
     pResources->createBlitFrameBuffer();
+    pResources->createDepthBuffer();
     listExtensionNames();
 }
 
@@ -201,23 +239,44 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     vk::RenderingInfo rInfo{};
     vk::RenderingAttachmentInfo aInfo{};
+    vk::RenderingAttachmentInfo dInfo{};
+    vk::ClearValue depthClear{};
+    depthClear.depthStencil = vk::ClearDepthStencilValue{1.0, 0};
+    //dInfo.clearValue = depthClear;
+    dInfo.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    //dInfo.loadOp = vk::AttachmentLoadOp::eDontCare;
+    dInfo.storeOp = vk::AttachmentStoreOp::eStore;
+    dInfo.imageView = *pResources->depthImageView;
+    
     aInfo.clearValue = clearColor;
     aInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     aInfo.loadOp = vk::AttachmentLoadOp::eClear;
     aInfo.storeOp = vk::AttachmentStoreOp::eStore;
     aInfo.imageView = *pEngine->blitImageViews;
-
+    
     rInfo.colorAttachmentCount = 1;
     rInfo.pColorAttachments = &aInfo;
+    rInfo.pDepthAttachment = &dInfo;
     rInfo.layerCount = 1;
 
     rInfo.renderArea = vk::Rect2D{
         {0, 0}, pEngine->swapChainExtent};
 
     commandBuffer.bindVertexBuffers(0, buffers, offsets);
-    commandBuffer.bindIndexBuffer(*pResources->indexBuffer, 0, vk::IndexType::eUint16);
+    commandBuffer.bindIndexBuffer(*pResources->indexBuffer, 0, vk::IndexType::eUint32);
 
-    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, commandBuffer, *pEngine->blitImage);
+    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
+    transitionImageLayout(vk::ImageLayout::eDepthAttachmentOptimal, vk::ImageLayout::eGeneral, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
+
+    vk::ImageSubresourceRange depthRange{};
+    depthRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    depthRange.baseArrayLayer = 0;
+    depthRange.baseMipLevel = 0;
+    depthRange.layerCount = 1;
+    depthRange.levelCount = 1;
+
+    commandBuffer.clearDepthStencilImage(*pResources->depthImage, vk::ImageLayout::eGeneral, vk::ClearDepthStencilValue{1.0, 0}, depthRange);
+    transitionImageLayout(vk::ImageLayout::eGeneral, vk::ImageLayout::eDepthAttachmentOptimal, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
     commandBuffer.beginRendering(rInfo);
     //commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
@@ -234,13 +293,20 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     scissor.offset = vk::Offset2D{0, 0};
     scissor.extent = pEngine->swapChainExtent;
 
-    glm::mat4 trans = glm::mat4(1.0f);
-    trans = glm::rotate(trans, static_cast<float>(glfwGetTime()), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    MeshPushConstants mesh{};
-    mesh.render_matrix = trans;
-    std::vector<MeshPushConstants> meshes{mesh};
-    memcpy(pResources->uboPtr, &mesh, sizeof(mesh));
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    MeshPushConstants ubo{};
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1;
+
+    memcpy(pResources->uboPtr, &ubo, sizeof(ubo));
+
     commandBuffer.setScissor(0, scissor);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
     //commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
@@ -250,14 +316,14 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
 
-    transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eTransferSrcOptimal, commandBuffer, *pEngine->blitImage);
+    transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eTransferSrcOptimal, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
     /* BIG NOTE
     // barriers syncs things between all the commands which happen before the barrier
     // was inserted and all the commands which come after the barrier, what it means is that
     // for all commands named C after barrier B was inserted needs to wait in their specified
     // dst stages until all commands before the barrier named A have finised their operations
     // specified in their src stage flags*/
-    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, pEngine->swapChainImages[imageIndex]);
+    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, pEngine->swapChainImages[imageIndex], vk::ImageAspectFlagBits::eColor);
    
     vk::ImageBlit region{};
     vk::ImageSubresourceLayers layers{};
@@ -288,7 +354,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     
 
     commandBuffer.blitImage(*pEngine->blitImage, vk::ImageLayout::eTransferSrcOptimal, pEngine->swapChainImages[imageIndex], vk::ImageLayout::eTransferDstOptimal, region, vk::Filter::eLinear);
-    transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
+    transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex], vk::ImageAspectFlagBits::eColor);
     try {
         commandBuffer.end();
     } catch (vk::SystemError err) {
@@ -482,14 +548,14 @@ void Renderer::recreateSwapchain() {
     }
 }
 
-void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image) {
+void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image, vk::ImageAspectFlags aspect) {
     vk::ImageMemoryBarrier memoryBarrier{};
     memoryBarrier.oldLayout = oldLayout;
     memoryBarrier.newLayout = newLayout;
     memoryBarrier.image = image;
     memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    memoryBarrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    memoryBarrier.subresourceRange.aspectMask = aspect;
     memoryBarrier.subresourceRange.baseMipLevel = 0;
     memoryBarrier.subresourceRange.levelCount = 1;
     memoryBarrier.subresourceRange.baseArrayLayer = 0;
@@ -539,7 +605,26 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
-    } 
+    } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthAttachmentOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+    } else if (oldLayout == vk::ImageLayout::eDepthAttachmentOptimal && newLayout == vk::ImageLayout::eGeneral) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destinationStage = vk::PipelineStageFlagBits::eAllCommands;
+    } else if (oldLayout == vk::ImageLayout::eGeneral && newLayout == vk::ImageLayout::eDepthAttachmentOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
+        destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+    }
+
     else {
         throw std::invalid_argument("unsupported layout transition!");
     }
@@ -659,10 +744,12 @@ Renderer::~Renderer() {
     pEngine->m_swapChain.clear();
     m_physicalDevice.clear();
     m_physicalDevices.clear();
+    // TODO move all the resources to resource destructor
     pResources->texSampler.clear();
     pResources->texImageView.clear();
     pResources->texImage.clear();
     vmaFreeMemory(allocator, pResources->texImageAlloc);
+    vmaFreeMemory(allocator, pResources->depthAlloc);
     vmaDestroyAllocator(allocator);
     m_device.clear();
     pEngine->m_surface.clear();

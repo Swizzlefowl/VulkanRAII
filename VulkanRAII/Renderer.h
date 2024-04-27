@@ -37,18 +37,23 @@ class Renderer {
         glm::vec2 texCoord{};
     };
 
-    const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+    //const std::vector<Vertex> vertices = {
+        //{{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        //{{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        //{{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        //{{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
 
-    const std::vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0};
+    std::vector<Vertex> vertices{};
+
+    //const std::vector<uint16_t> indices = {
+        //0, 1, 2, 2, 3, 0};
+
+    std::vector<uint32_t> indices{};
 
     struct MeshPushConstants {
-        glm::vec4 data;
-        glm::mat4 render_matrix;
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
     };
 
     vk::raii::Context m_context{};
@@ -102,7 +107,7 @@ class Renderer {
     void drawFrame();
     void cleanupSwapchain();
     void recreateSwapchain();
-    void transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image);
+    void transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image, vk::ImageAspectFlags aspect);
     Colors checkUserInput();
     int getUserInput();
 

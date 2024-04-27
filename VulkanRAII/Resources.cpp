@@ -248,7 +248,7 @@ void Resources::loadImage() {
     int texHeight{};
     int texChannels{};
     stbi_uc* pixels{nullptr};
-    pixels = stbi_load("statue.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    pixels = stbi_load("viking_room.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     vk::DeviceSize imageSize{static_cast<vk::DeviceSize>(texWidth * texHeight * 4)};
 
     if (!pixels)
@@ -266,9 +266,9 @@ void Resources::loadImage() {
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
     commandBuffer.begin(beginInfo);
 
-    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, *texImage);
+    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, *texImage, vk::ImageAspectFlagBits::eColor);
     copyBufferToImage(commandBuffer, stagingBuffer, *texImage, static_cast<std::uint32_t>(texWidth), static_cast<std::uint32_t>(texHeight));
-    m_renderer.transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, commandBuffer, *texImage);
+    m_renderer.transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, commandBuffer, *texImage, vk::ImageAspectFlagBits::eColor);
 
    commandBuffer.end();
 
@@ -367,6 +367,26 @@ vk::raii::Sampler Resources::createSampler() {
     samplerInfo.maxLod = 0.0f;
 
     return m_renderer.m_device.createSampler(samplerInfo);
+}
+
+void Resources::createDepthBuffer() {
+    depthImage = createImage(m_renderer.pEngine->swapChainExtent.width, m_renderer.pEngine->swapChainExtent.width, vk::Format::eD32Sfloat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eTransferDst, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, m_renderer.allocator, depthAlloc);
+    depthImageView = createImageView(*depthImage, vk::Format::eD32Sfloat, vk::ImageAspectFlagBits::eDepth);
+    auto cb = createSingleTimeCB();
+    
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    cb.begin(beginInfo);
+
+    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal, cb, *depthImage, vk::ImageAspectFlagBits::eDepth);
+    cb.end();
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &*cb;
+    m_renderer.m_queue.submit(submitInfo);
+    m_renderer.m_queue.waitIdle();
+
 }
 
 void Resources::copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height) {
