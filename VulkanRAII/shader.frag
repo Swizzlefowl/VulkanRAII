@@ -9,7 +9,7 @@ layout( push_constant ) uniform constants
     int index;
 } PushConstants;
 
-layout(binding = 1) uniform sampler2D texSampler[2];
+layout(binding = 1) uniform sampler2D texSampler[3];
 
 void main() {
     outColor = texture(texSampler[PushConstants.index], texCoord);

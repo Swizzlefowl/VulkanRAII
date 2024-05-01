@@ -72,7 +72,8 @@ class Renderer {
     Resources* pResources{nullptr};
     std::mt19937_64 mt{};
     bool framebufferResized{false};
-
+    std::vector<std::string> args{};
+    std::string modelName{};
   public:
     enum Colors {
         Red,
@@ -85,7 +86,7 @@ class Renderer {
         NoColor
     };
 
-    Renderer();
+    Renderer(const std::vector<std::string>& args);
     void run(PresentationEngine* engine, Graphics* Graphics, Resources* resources);
     ~Renderer();
 

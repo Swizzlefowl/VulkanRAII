@@ -40,6 +40,11 @@ class Resources {
     VmaAllocation texImageAlloc2{nullptr};
     vk::raii::ImageView texImageView2{nullptr};
     vk::raii::Sampler texSampler2{nullptr};
+
+    vk::raii::Image texImage3{nullptr};
+    VmaAllocation texImageAlloc3{nullptr};
+    vk::raii::ImageView texImageView3{nullptr};
+    vk::raii::Sampler texSampler3{nullptr};
     
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};

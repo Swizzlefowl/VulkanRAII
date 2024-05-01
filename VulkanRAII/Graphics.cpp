@@ -18,7 +18,7 @@ void Graphics::createDescriptorLayout() {
     bindings[0].pImmutableSamplers = nullptr;
 
     bindings[1].binding = 1;
-    bindings[1].descriptorCount = 2;
+    bindings[1].descriptorCount = 3;
     bindings[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
     bindings[1].stageFlags = vk::ShaderStageFlagBits::eFragment;
     bindings[1].pImmutableSamplers = nullptr;

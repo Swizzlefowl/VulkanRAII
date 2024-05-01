@@ -150,7 +150,7 @@ void Resources::createDescriptorPool() {
     poolSize[0].descriptorCount = 1;
 
      poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
-     poolSize[1].descriptorCount = 2;
+     poolSize[1].descriptorCount = 3;
     vk::DescriptorPoolCreateInfo createInfo{};
     createInfo.poolSizeCount = poolSize.size();
     createInfo.pPoolSizes = poolSize.data();
@@ -191,7 +191,12 @@ void Resources::allocateDescriptorSets() {
     imageInfo2.sampler = *texSampler2;
     imageInfo2.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-    vk::DescriptorImageInfo imageInfos[2] = {imageInfo, imageInfo2};
+    vk::DescriptorImageInfo imageInfo3{};
+    imageInfo3.imageView = *texImageView3;
+    imageInfo3.sampler = *texSampler3;
+    imageInfo3.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    vk::DescriptorImageInfo imageInfos[3] = {imageInfo, imageInfo2, imageInfo3};
     std::array<vk::WriteDescriptorSet, 2> descriptorWrite{};
     descriptorWrite[0].dstSet = *descriptorSet[0];
     descriptorWrite[0].dstBinding = 0;
@@ -200,13 +205,15 @@ void Resources::allocateDescriptorSets() {
     descriptorWrite[0].descriptorCount = 1;
     descriptorWrite[0].pBufferInfo = &bufferInfo;
     
-    // dstArrayElement refers to an array of descriptors pointing to an array of buffers/samplers bound that that sets binding slot
+    // dstArray refers to an array of descriptors pointing to an array of buffers/samplers bound that that sets binding slot
+    // dstArrayElement is the index of that element inside the array
     descriptorWrite[1].dstSet = *descriptorSet[0];
     descriptorWrite[1].dstBinding = 1;
     descriptorWrite[1].dstArrayElement = 0;
     descriptorWrite[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    descriptorWrite[1].descriptorCount = 2;
+    descriptorWrite[1].descriptorCount = 3;
     descriptorWrite[1].pImageInfo = imageInfos;
+
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
 

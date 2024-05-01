@@ -14,7 +14,7 @@ void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* re
     Assimp::Importer importer{};
     const aiScene* scene{nullptr};
     if (args.size() < 1){
-        scene = importer.ReadFile("cube.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+        scene = importer.ReadFile("viking_room.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
 } else{
         scene = importer.ReadFile(modelName.data(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
 }
@@ -83,6 +83,7 @@ void Renderer::initVulkan() {
     pResources->createDescriptorPool();
     pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
     pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
+    pResources->loadImage("kenergy.jpg", pResources->texImage3, pResources->texImageView3, pResources->texImageAlloc3, pResources->texSampler3);
     pResources->allocateDescriptorSets();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
@@ -286,12 +287,15 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
         index = 1;
     else if (glfwGetKey(window, GLFW_KEY_F))
         index = 0;
+    else if (glfwGetKey(window, GLFW_KEY_S))
+        index = 2;
     //commandBuffer.clearDepthStencilImage(*pResources->depthImage, vk::ImageLayout::eGeneral, vk::ClearDepthStencilValue{1.0, 0}, depthRange);
     //transitionImageLayout(vk::ImageLayout::eGeneral, vk::ImageLayout::eDepthAttachmentOptimal, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
     commandBuffer.beginRendering(rInfo);
     //commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
     commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
+    
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -563,6 +567,7 @@ void Renderer::recreateSwapchain() {
         pResources->createframebuffers();
         pEngine->createBlitImage();
         pEngine->createBlitImageView();
+        pResources->createDepthBuffer();
     } catch (vk::Error& err) {
         throw("failed to recreate swapchainImage!");
     }
@@ -660,6 +665,9 @@ void Renderer::cleanupSwapchain() {
     pEngine->blitImageViews.~ImageView();
     pEngine->blitImage.clear();
     pEngine->blitImageMemory.~DeviceMemory();
+    pResources->depthImage.clear();
+    pResources->depthImageView.clear();
+    vmaFreeMemory(allocator, pResources->depthAlloc);
 }
 
 Renderer::Colors Renderer::checkUserInput() {
@@ -770,6 +778,7 @@ Renderer::~Renderer() {
     pResources->texImage.clear();
     vmaFreeMemory(allocator, pResources->texImageAlloc);
     vmaFreeMemory(allocator, pResources->texImageAlloc2);
+    vmaFreeMemory(allocator, pResources->texImageAlloc3);
     vmaFreeMemory(allocator, pResources->depthAlloc);
     vmaDestroyAllocator(allocator);
     m_device.clear();
