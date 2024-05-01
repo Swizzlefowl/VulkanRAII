@@ -27,7 +27,6 @@ class Resources {
     vk::raii::DescriptorPool descriptorPool{nullptr};
     std::vector<vk::raii::DescriptorSet> descriptorSet{};
     vk::Buffer textureBuffer{};
-    VmaAllocation texallocation;
     vk::raii::Framebuffer blitFramebuffer{nullptr};
     vk::raii::Image texImage{nullptr};
     VmaAllocation texImageAlloc{nullptr};
@@ -36,6 +35,12 @@ class Resources {
     VmaAllocation depthAlloc{nullptr};
     vk::raii::Image depthImage{nullptr};
     vk::raii::ImageView depthImageView{nullptr};
+
+    vk::raii::Image texImage2{nullptr};
+    VmaAllocation texImageAlloc2{nullptr};
+    vk::raii::ImageView texImageView2{nullptr};
+    vk::raii::Sampler texSampler2{nullptr};
+    
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
 
@@ -50,7 +55,7 @@ class Resources {
     vk::raii::Buffer createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation);
     void mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size);
     void* mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size);
-    void loadImage();
+    void loadImage(const std::string& imageName, vk::raii::Image& image, vk::raii::ImageView& imageView, VmaAllocation& imageAlloc, vk::raii::Sampler& sampler);
     vk::raii::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation);
     vk::raii::CommandBuffer createSingleTimeCB();
     vk::raii::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags);

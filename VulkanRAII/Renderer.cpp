@@ -11,8 +11,13 @@ void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* re
     pGraphics = Graphics;
     pResources = resources;
 
-     Assimp::Importer importer{};
-    auto scene = importer.ReadFile("viking_room.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    Assimp::Importer importer{};
+    const aiScene* scene{nullptr};
+    if (args.size() < 1){
+        scene = importer.ReadFile("cube.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+} else{
+        scene = importer.ReadFile(modelName.data(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+}
     
     if (!scene)
         throw std::runtime_error("you done fucked up");
@@ -76,7 +81,8 @@ void Renderer::initVulkan() {
     pGraphics->createGraphicsPipeline();
     pResources->createResources();
     pResources->createDescriptorPool();
-    pResources->loadImage();
+    pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
+    pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
     pResources->allocateDescriptorSets();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
@@ -236,15 +242,15 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     std::vector<vk::Buffer> buffers{*pResources->vertexBuffer};
     std::vector<vk::DeviceSize> offsets{0};
-
+    
     vk::RenderingInfo rInfo{};
     vk::RenderingAttachmentInfo aInfo{};
     vk::RenderingAttachmentInfo dInfo{};
     vk::ClearValue depthClear{};
     depthClear.depthStencil = vk::ClearDepthStencilValue{1.0, 0};
-    //dInfo.clearValue = depthClear;
+    dInfo.clearValue = depthClear;
     dInfo.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-    //dInfo.loadOp = vk::AttachmentLoadOp::eDontCare;
+    dInfo.loadOp = vk::AttachmentLoadOp::eClear;
     dInfo.storeOp = vk::AttachmentStoreOp::eStore;
     dInfo.imageView = *pResources->depthImageView;
     
@@ -261,12 +267,12 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     rInfo.renderArea = vk::Rect2D{
         {0, 0}, pEngine->swapChainExtent};
-
+    
     commandBuffer.bindVertexBuffers(0, buffers, offsets);
     commandBuffer.bindIndexBuffer(*pResources->indexBuffer, 0, vk::IndexType::eUint32);
 
     transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
-    transitionImageLayout(vk::ImageLayout::eDepthAttachmentOptimal, vk::ImageLayout::eGeneral, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
+    //transitionImageLayout(vk::ImageLayout::eDepthAttachmentOptimal, vk::ImageLayout::eGeneral, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
 
     vk::ImageSubresourceRange depthRange{};
     depthRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
@@ -275,11 +281,17 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     depthRange.layerCount = 1;
     depthRange.levelCount = 1;
 
-    commandBuffer.clearDepthStencilImage(*pResources->depthImage, vk::ImageLayout::eGeneral, vk::ClearDepthStencilValue{1.0, 0}, depthRange);
-    transitionImageLayout(vk::ImageLayout::eGeneral, vk::ImageLayout::eDepthAttachmentOptimal, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
+    static int index{};
+    if (glfwGetKey(window, GLFW_KEY_D))
+        index = 1;
+    else if (glfwGetKey(window, GLFW_KEY_F))
+        index = 0;
+    //commandBuffer.clearDepthStencilImage(*pResources->depthImage, vk::ImageLayout::eGeneral, vk::ClearDepthStencilValue{1.0, 0}, depthRange);
+    //transitionImageLayout(vk::ImageLayout::eGeneral, vk::ImageLayout::eDepthAttachmentOptimal, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
     commandBuffer.beginRendering(rInfo);
     //commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
+    commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -298,13 +310,21 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
+    static float pos{};
     MeshPushConstants ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    if (glfwGetKey(window, GLFW_KEY_W)) {
+        pos += 0.05;
+        ubo.model = glm::translate(ubo.model, {0.f, pos, 0});
+    }
+    ubo.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 
+    if (glfwGetKey(window, GLFW_KEY_A)) {
+        pos += 0.002;
+        ubo.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 0.0f), glm::vec3(0.0, 0.0f, pos), glm::vec3(0.0f, 0.0f, 1.0f));
+    }
     memcpy(pResources->uboPtr, &ubo, sizeof(ubo));
 
     commandBuffer.setScissor(0, scissor);
@@ -749,6 +769,7 @@ Renderer::~Renderer() {
     pResources->texImageView.clear();
     pResources->texImage.clear();
     vmaFreeMemory(allocator, pResources->texImageAlloc);
+    vmaFreeMemory(allocator, pResources->texImageAlloc2);
     vmaFreeMemory(allocator, pResources->depthAlloc);
     vmaDestroyAllocator(allocator);
     m_device.clear();
@@ -760,7 +781,13 @@ Renderer::~Renderer() {
     glfwTerminate();
 }
 
-Renderer::Renderer() {
+Renderer::Renderer(const std::vector<std::string>& args) {
+    this->args = args;
+    if (args.size() < 1)
+        ;
+    else
+        modelName = args[0];
+
 }
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pCallback) {

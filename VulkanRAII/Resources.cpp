@@ -150,7 +150,7 @@ void Resources::createDescriptorPool() {
     poolSize[0].descriptorCount = 1;
 
      poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
-     poolSize[1].descriptorCount = 1;
+     poolSize[1].descriptorCount = 2;
     vk::DescriptorPoolCreateInfo createInfo{};
     createInfo.poolSizeCount = poolSize.size();
     createInfo.pPoolSizes = poolSize.data();
@@ -186,6 +186,12 @@ void Resources::allocateDescriptorSets() {
     imageInfo.sampler = *texSampler;
     imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
+    vk::DescriptorImageInfo imageInfo2{};
+    imageInfo2.imageView = *texImageView2;
+    imageInfo2.sampler = *texSampler2;
+    imageInfo2.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    vk::DescriptorImageInfo imageInfos[2] = {imageInfo, imageInfo2};
     std::array<vk::WriteDescriptorSet, 2> descriptorWrite{};
     descriptorWrite[0].dstSet = *descriptorSet[0];
     descriptorWrite[0].dstBinding = 0;
@@ -193,14 +199,14 @@ void Resources::allocateDescriptorSets() {
     descriptorWrite[0].descriptorType = vk::DescriptorType::eUniformBuffer;
     descriptorWrite[0].descriptorCount = 1;
     descriptorWrite[0].pBufferInfo = &bufferInfo;
-
+    
+    // dstArrayElement refers to an array of descriptors pointing to an array of buffers/samplers bound that that sets binding slot
     descriptorWrite[1].dstSet = *descriptorSet[0];
     descriptorWrite[1].dstBinding = 1;
     descriptorWrite[1].dstArrayElement = 0;
     descriptorWrite[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    descriptorWrite[1].descriptorCount = 1;
-    descriptorWrite[1].pImageInfo = &imageInfo;
-
+    descriptorWrite[1].descriptorCount = 2;
+    descriptorWrite[1].pImageInfo = imageInfos;
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
 
@@ -243,12 +249,12 @@ void* Resources::mapPersistentMemory(const VmaAllocator& allocator, const VmaAll
     return ptr;
 }
 
-void Resources::loadImage() {
+void Resources::loadImage(const std::string& imageName, vk::raii::Image& image, vk::raii::ImageView& imageView, VmaAllocation& imageAlloc, vk::raii::Sampler& sampler) {
     int texWidth{};
     int texHeight{};
     int texChannels{};
     stbi_uc* pixels{nullptr};
-    pixels = stbi_load("viking_room.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    pixels = stbi_load(imageName.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     vk::DeviceSize imageSize{static_cast<vk::DeviceSize>(texWidth * texHeight * 4)};
 
     if (!pixels)
@@ -259,16 +265,16 @@ void Resources::loadImage() {
     stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation);
     mapMemory(m_renderer.allocator, allocation, pixels, imageSize);
 
-    texImage = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, m_renderer.allocator, texImageAlloc);
+    image = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, m_renderer.allocator, imageAlloc);
 
     auto commandBuffer{createSingleTimeCB()};
     vk::CommandBufferBeginInfo beginInfo{};
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
     commandBuffer.begin(beginInfo);
 
-    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, *texImage, vk::ImageAspectFlagBits::eColor);
-    copyBufferToImage(commandBuffer, stagingBuffer, *texImage, static_cast<std::uint32_t>(texWidth), static_cast<std::uint32_t>(texHeight));
-    m_renderer.transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, commandBuffer, *texImage, vk::ImageAspectFlagBits::eColor);
+    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, *image, vk::ImageAspectFlagBits::eColor);
+    copyBufferToImage(commandBuffer, stagingBuffer, *image, static_cast<std::uint32_t>(texWidth), static_cast<std::uint32_t>(texHeight));
+    m_renderer.transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, commandBuffer, *image, vk::ImageAspectFlagBits::eColor);
 
    commandBuffer.end();
 
@@ -278,8 +284,8 @@ void Resources::loadImage() {
     m_renderer.m_queue.submit(submitInfo);
     m_renderer.m_queue.waitIdle();
 
-    texImageView = createImageView(*texImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
-    texSampler = createSampler();
+    imageView = createImageView(*image, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
+    sampler = createSampler();
     commandBuffer.clear();
     stbi_image_free(pixels);
     stagingBuffer.clear();

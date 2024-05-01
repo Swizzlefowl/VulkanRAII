@@ -18,7 +18,7 @@ void Graphics::createDescriptorLayout() {
     bindings[0].pImmutableSamplers = nullptr;
 
     bindings[1].binding = 1;
-    bindings[1].descriptorCount = 1;
+    bindings[1].descriptorCount = 2;
     bindings[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
     bindings[1].stageFlags = vk::ShaderStageFlagBits::eFragment;
     bindings[1].pImmutableSamplers = nullptr;
@@ -129,18 +129,18 @@ void Graphics::createGraphicsPipeline() {
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    // vk::PushConstantRange pushConstant{};
-    // pushConstant.offset = 0;
-    // pushConstant.size = sizeof(Renderer::MeshPushConstants);
-    // pushConstant.stageFlags = vk::ShaderStageFlagBits::eVertex;
+    vk::PushConstantRange pushConstant{};
+    pushConstant.offset = 0;
+    pushConstant.size = sizeof(int);
+    pushConstant.stageFlags = vk::ShaderStageFlagBits::eFragment;
   
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &(*descriptorSetLayout);
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = nullptr;
-    // pipelineLayoutInfo.pushConstantRangeCount = 1;
-    // pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+    //pipelineLayoutInfo.pushConstantRangeCount = 0;
+    //pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
     try {
         pipelineLayout = m_renderer.m_device.createPipelineLayout(pipelineLayoutInfo);
