@@ -3,6 +3,9 @@
 #include "PresentationEngine.h"
 #include "Renderer.h"
 #include "stb_image.h"
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 // the attachments refer to the vkImage views which itself is a view into
 // our swapchain images
 void Resources::createframebuffers() {
@@ -118,7 +121,9 @@ void Resources::mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, c
 }
 
 Resources::Resources(Renderer& renderer)
-    : m_renderer{renderer} {
+    : m_renderer{renderer}
+    , cube{renderer.allocator}
+    , viking{renderer.allocator} {
 }
 
 Resources::~Resources() {
@@ -130,18 +135,18 @@ void Resources::createResources() {
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
-    vk::DeviceSize vertexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.vertices[0]) * m_renderer.vertices.size());
-    vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
+    //vk::DeviceSize vertexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.vertices[0]) * m_renderer.vertices.size());
+    //vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
     vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
-    createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
-    createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
+    //createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
+    //createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
     createBuffers(uniformBuffer, uniformBufferMemory, uboSize, vk::BufferUsageFlagBits::eUniformBuffer);
-    auto vertexPtr = vertexBufferMemory.mapMemory(0, vertexSize);
-    memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
-    mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
+    //auto vertexPtr = vertexBufferMemory.mapMemory(0, vertexSize);
+    //memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
+    //mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
     uboPtr = uniformBufferMemory.mapMemory(0, uboSize);
-    vertexBufferMemory.unmapMemory();
-    indexBufferMemory.unmapMemory();
+    //vertexBufferMemory.unmapMemory();
+    //indexBufferMemory.unmapMemory();
 }
 
 void Resources::createDescriptorPool() {
@@ -182,13 +187,13 @@ void Resources::allocateDescriptorSets() {
     bufferInfo.range = sizeof(Renderer::MeshPushConstants);
 
     vk::DescriptorImageInfo imageInfo{};
-    imageInfo.imageView = *texImageView;
-    imageInfo.sampler = *texSampler;
+    imageInfo.imageView = *cube.imageView;
+    imageInfo.sampler = *cube.sampler;
     imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     vk::DescriptorImageInfo imageInfo2{};
-    imageInfo2.imageView = *texImageView2;
-    imageInfo2.sampler = *texSampler2;
+    imageInfo2.imageView = *viking.imageView;
+    imageInfo2.sampler = *viking.sampler;
     imageInfo2.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     vk::DescriptorImageInfo imageInfo3{};
@@ -217,7 +222,7 @@ void Resources::allocateDescriptorSets() {
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
 
-vk::raii::Buffer Resources::createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VmaAllocation& allocation) {
+vk::raii::Buffer Resources::createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VkMemoryPropertyFlags propertyFlags, VmaAllocation& allocation) {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = size;
     bufferInfo.usage = usage;
@@ -225,7 +230,7 @@ vk::raii::Buffer Resources::createBuffer(vk::BufferUsageFlags usage, vk::DeviceS
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.flags = createFlags;
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
+    allocInfo.requiredFlags = propertyFlags;
     vk::Buffer buffer{};
     auto result = vmaCreateBuffer(m_renderer.allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocInfo, reinterpret_cast<VkBuffer*>(&buffer), &allocation, nullptr);
 
@@ -269,10 +274,10 @@ void Resources::loadImage(const std::string& imageName, vk::raii::Image& image, 
 
     vk::raii::Buffer stagingBuffer{nullptr};
     VmaAllocation allocation{nullptr};
-    stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation);
+    stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, 0, allocation);
     mapMemory(m_renderer.allocator, allocation, pixels, imageSize);
 
-    image = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, m_renderer.allocator, imageAlloc);
+    image = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, 0, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_renderer.allocator, imageAlloc);
 
     auto commandBuffer{createSingleTimeCB()};
     vk::CommandBufferBeginInfo beginInfo{};
@@ -290,7 +295,6 @@ void Resources::loadImage(const std::string& imageName, vk::raii::Image& image, 
     submitInfo.pCommandBuffers = &*commandBuffer;
     m_renderer.m_queue.submit(submitInfo);
     m_renderer.m_queue.waitIdle();
-
     imageView = createImageView(*image, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
     sampler = createSampler();
     commandBuffer.clear();
@@ -300,7 +304,7 @@ void Resources::loadImage(const std::string& imageName, vk::raii::Image& image, 
     
 }
 
-vk::raii::Image Resources::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation) {
+vk::raii::Image Resources::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VkMemoryPropertyFlags propertyFlags, VmaAllocationCreateFlags createFlags, const VmaAllocator& allocator, VmaAllocation& allocation) {
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.extent.width = static_cast<uint32_t>(width);
@@ -319,6 +323,7 @@ vk::raii::Image Resources::createImage(uint32_t width, uint32_t height, vk::Form
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.flags = createFlags;
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.requiredFlags = propertyFlags;
 
     auto result = vmaCreateImage(allocator, reinterpret_cast<VkImageCreateInfo*>(&imageInfo), &allocInfo, reinterpret_cast<VkImage*>(&image), &allocation, nullptr);
 
@@ -383,7 +388,7 @@ vk::raii::Sampler Resources::createSampler() {
 }
 
 void Resources::createDepthBuffer() {
-    depthImage = createImage(m_renderer.pEngine->swapChainExtent.width, m_renderer.pEngine->swapChainExtent.width, vk::Format::eD32Sfloat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eTransferDst, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, m_renderer.allocator, depthAlloc);
+    depthImage = createImage(m_renderer.pEngine->swapChainExtent.width, m_renderer.pEngine->swapChainExtent.width, vk::Format::eD32Sfloat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eTransferDst, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_renderer.allocator, depthAlloc);
     depthImageView = createImageView(*depthImage, vk::Format::eD32Sfloat, vk::ImageAspectFlagBits::eDepth);
     auto cb = createSingleTimeCB();
     
@@ -400,6 +405,65 @@ void Resources::createDepthBuffer() {
     m_renderer.m_queue.submit(submitInfo);
     m_renderer.m_queue.waitIdle();
 
+}
+
+void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices) {
+    Assimp::Importer importer{};
+    const aiScene* scene{nullptr};
+    scene = importer.ReadFile(name.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    
+    if (!scene)
+        throw std::runtime_error("you done fucked up");
+    std::cout << scene->mNumMeshes;
+    auto mesh = scene->mMeshes[0];
+    for (size_t index{}; index < scene->mMeshes[0]->mNumVertices; index++) {
+        Resources::Vertex vertice{};
+
+        vertice.pos.r = mesh->mVertices[index].x;
+        vertice.pos.g = mesh->mVertices[index].y;
+        vertice.pos.b = mesh->mVertices[index].z;
+
+        vertice.color.r = 1.0;
+        vertice.color.g = 1.0;
+        vertice.color.b = 1.0;
+
+        vertice.texCoord.r = mesh->mTextureCoords[0][index].x;
+        vertice.texCoord.g = mesh->mTextureCoords[0][index].y;
+        vertices.emplace_back(vertice);
+    }
+
+    for (int index{}; index < mesh->mNumFaces; index++) {
+        const auto& face = mesh->mFaces[index];
+        for (int jIndex{}; jIndex < face.mNumIndices; jIndex++) {
+            std::uint32_t indice = face.mIndices[jIndex];
+            indices.emplace_back(indice);
+        }
+    }
+}
+
+void Resources::createVertexBuffer(const VmaAllocator& allocator, vk::raii::Buffer& buffer, vk::BufferUsageFlags usage, VmaAllocation& alloc, void* src, vk::DeviceSize size) {
+    vk::raii::Buffer stagingBuffer{nullptr};
+    VmaAllocation allocation{nullptr};
+    stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, size, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, 0, allocation);
+    mapMemory(m_renderer.allocator, allocation, src, size);
+    buffer = createBuffer(usage, size, 0, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, alloc);
+    
+    auto cb = createSingleTimeCB();
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    cb.begin(beginInfo);
+    copyBuffer(cb, *stagingBuffer, *buffer, size);
+    cb.end();
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &*cb;
+    m_renderer.m_queue.submit(submitInfo);
+    m_renderer.m_queue.waitIdle();
+    cb.clear();
+    stagingBuffer.clear();
+    vmaFreeMemory(allocator, allocation);
+    return;
 }
 
 void Resources::copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height) {
@@ -420,4 +484,44 @@ void Resources::copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, 
         1};
 
     commandBuffer.copyBufferToImage(*buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
+    
+}
+
+void Resources::createMesh(const std::string& Modelname, const std::string& textureName, Mesh& mesh) {
+    std::vector<Resources::Vertex> vertices{};
+    std::vector<std::uint32_t> indices{};
+    loadModel(Modelname, vertices, indices);
+    vk::DeviceSize vertexSize{sizeof(vertices[0]) * vertices.size()};
+    createVertexBuffer(m_renderer.allocator, mesh.vertexBuffer, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, mesh.vertexAlloc, vertices.data(), vertexSize);
+    vk::DeviceSize indexSize{sizeof(indices[0]) * indices.size()};
+    createVertexBuffer(m_renderer.allocator, mesh.indexBuffer, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, mesh.indexAlloc, indices.data(), indexSize);
+    mesh.verticesCount = vertices.size();
+    mesh.indicesCount = indices.size();
+
+    loadImage(textureName, mesh.image, mesh.imageView, mesh.imageAlloc, mesh.sampler);
+}
+
+void Resources::copyBuffer(vk::raii::CommandBuffer& cb, const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, vk::DeviceSize size) {
+    vk::BufferCopy copyRegion{};
+    copyRegion.size = size;
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+
+    cb.copyBuffer(srcBuffer, dstBuffer, copyRegion);
+    return;
+}
+
+Resources::Mesh::Mesh(const VmaAllocator& allocator)
+    : allocator{allocator}{
+}
+
+Resources::Mesh::~Mesh() {
+    vertexBuffer.clear();
+    indexBuffer.clear();
+    vmaFreeMemory(allocator, vertexAlloc);
+    vmaFreeMemory(allocator, indexAlloc);
+    sampler.clear();
+    imageView.clear();
+    image.clear();
+    vmaFreeMemory(allocator, imageAlloc);
 }

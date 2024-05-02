@@ -10,49 +10,10 @@ void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* re
     pEngine = engine;
     pGraphics = Graphics;
     pResources = resources;
-
-    Assimp::Importer importer{};
-    const aiScene* scene{nullptr};
-    if (args.size() < 1){
-        scene = importer.ReadFile("viking_room.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
-} else{
-        scene = importer.ReadFile(modelName.data(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
-}
-    
-    if (!scene)
-        throw std::runtime_error("you done fucked up");
-    std::cout << scene->mNumMeshes;
-    auto mesh = scene->mMeshes[0];
-     for (size_t index{}; index < scene->mMeshes[0]->mNumVertices; index++) {
-        Vertex vertice{};
-        
-        vertice.pos.r = mesh->mVertices[index].x;
-        vertice.pos.g = mesh->mVertices[index].y;
-        vertice.pos.b = mesh->mVertices[index].z;
-
-        vertice.color.r = 1.0;
-        vertice.color.g = 1.0;
-        vertice.color.b = 1.0;
-
-        vertice.texCoord.r = mesh->mTextureCoords[0][index].x;
-        vertice.texCoord.g = mesh->mTextureCoords[0][index].y;
-        vertices.emplace_back(vertice);
-    }
-
-     for (int index{}; index < mesh->mNumFaces; index++) {
-        const auto& face = mesh->mFaces[index];
-        for (int jIndex{}; jIndex < face.mNumIndices; jIndex++) {
-            std::uint32_t indice = face.mIndices[jIndex];
-            indices.emplace_back(indice);
-         }
-     }
-
     createRandomNumberGenerator();
     initWindow();
     initVulkan();
     mainLoop();
-
-   
 }
 
 void Renderer::initWindow() {
@@ -81,8 +42,10 @@ void Renderer::initVulkan() {
     pGraphics->createGraphicsPipeline();
     pResources->createResources();
     pResources->createDescriptorPool();
-    pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
-    pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
+    pResources->createMesh("cube.obj", "statue.jpg", pResources->cube);
+    pResources->createMesh("viking_room.obj", "viking_room.png", pResources->viking);
+    //pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
+    //pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
     pResources->loadImage("kenergy.jpg", pResources->texImage3, pResources->texImageView3, pResources->texImageAlloc3, pResources->texSampler3);
     pResources->allocateDescriptorSets();
     pEngine->createBlitImage();
@@ -269,8 +232,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     rInfo.renderArea = vk::Rect2D{
         {0, 0}, pEngine->swapChainExtent};
     
-    commandBuffer.bindVertexBuffers(0, buffers, offsets);
-    commandBuffer.bindIndexBuffer(*pResources->indexBuffer, 0, vk::IndexType::eUint32);
+    commandBuffer.bindVertexBuffers(0, *pResources->cube.vertexBuffer, offsets);
+    commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
 
     transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
     //transitionImageLayout(vk::ImageLayout::eDepthAttachmentOptimal, vk::ImageLayout::eGeneral, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
@@ -334,8 +297,11 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     commandBuffer.setScissor(0, scissor);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
     //commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
-    commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
+    commandBuffer.drawIndexed(pResources->cube.indicesCount, 1, 0, 0, 0);
     //commandBuffer.endRenderPass();
+    commandBuffer.bindVertexBuffers(0, *pResources->viking.vertexBuffer, offsets);
+    commandBuffer.bindIndexBuffer(*pResources->viking.indexBuffer, 0, vk::IndexType::eUint32);
+    commandBuffer.drawIndexed(pResources->viking.indicesCount, 1, 0, 0, 0);
     commandBuffer.endRendering();
 
     //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
@@ -773,10 +739,6 @@ Renderer::~Renderer() {
     m_physicalDevice.clear();
     m_physicalDevices.clear();
     // TODO move all the resources to resource destructor
-    pResources->texSampler.clear();
-    pResources->texImageView.clear();
-    pResources->texImage.clear();
-    vmaFreeMemory(allocator, pResources->texImageAlloc);
     vmaFreeMemory(allocator, pResources->texImageAlloc2);
     vmaFreeMemory(allocator, pResources->texImageAlloc3);
     vmaFreeMemory(allocator, pResources->depthAlloc);

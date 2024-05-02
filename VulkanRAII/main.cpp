@@ -3,16 +3,8 @@
 #include "Graphics.h"
 #include "Resources.h"
 
-int main(int argc, char* argv[]) {
+int main() {
     std::vector<std::string> args{};
-    if (argc < 2)
-        ;
-    else {
-        for (size_t index{ 1 }; index < argc; index++) {
-            std::string arg{argv[index]};
-            args.emplace_back(arg);
-        }
-    }
     Renderer app{args};
     PresentationEngine engine{app};
     Graphics graphics{app};
