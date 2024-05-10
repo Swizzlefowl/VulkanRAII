@@ -278,11 +278,11 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-    static float pos{0.0};
+    static float pos{};
     MeshPushConstants ubo{};
     ubo.model = glm::mat4(1.0f);
     ubo.view = glm::mat4(1.0f);
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.view = glm::lookAt(glm::vec3(0.2f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
     
@@ -292,7 +292,20 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     ubo2.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo2.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 50.0f);
     ubo2.proj[1][1] *= -1;
-
+    
+    static float xPos{};
+    if (glfwGetKey(window, GLFW_KEY_W))
+        pos += 0.002;
+    if (glfwGetKey(window, GLFW_KEY_S))
+        pos -= 0.002;
+    if (glfwGetKey(window, GLFW_KEY_A))
+        xPos += 0.002;
+    if (glfwGetKey(window, GLFW_KEY_D))
+        xPos -= 0.002;
+    std::cout << "Y pos is: " << pos << '\n';
+    std::cout << "X pos is: " << xPos << '\n';
+    
+    ubo.view = glm::lookAt(glm::vec3(0.5, 0.0f, 0.0f), glm::vec3(0, pos, xPos), glm::vec3(0.0f, 1.0f, 0.0f));
     ubos.emplace_back(ubo);
     ubos.emplace_back(ubo2);
     vk::DeviceSize uboSize = sizeof(ubos[0]) * ubos.size();
