@@ -44,6 +44,7 @@ void Renderer::initVulkan() {
     pResources->createDescriptorPool();
     pResources->createMesh("cube.obj", "statue.jpg", pResources->cube);
     pResources->createMesh("viking_room.obj", "viking_room.png", pResources->viking);
+    pResources->createSkyBox();
     //pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
     //pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
     pResources->loadImage("kenergy.jpg", pResources->texImage3, pResources->texImageView3, pResources->texImageAlloc3, pResources->texSampler3);
@@ -258,7 +259,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     //commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
     commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
-    
+    commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 0);
+
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -272,36 +274,40 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     scissor.offset = vk::Offset2D{0, 0};
     scissor.extent = pEngine->swapChainExtent;
 
-
+    std::vector<MeshPushConstants> ubos{};
     static auto startTime = std::chrono::high_resolution_clock::now();
-
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-    static float pos{};
+    static float pos{0.0};
     MeshPushConstants ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    if (glfwGetKey(window, GLFW_KEY_W)) {
-        pos += 0.05;
-        ubo.model = glm::translate(ubo.model, {0.f, pos, 0});
-    }
-    ubo.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 10.0f);
+    ubo.model = glm::mat4(1.0f);
+    ubo.view = glm::mat4(1.0f);
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
+    
+    MeshPushConstants ubo2{};
+    ubo2.model = glm::mat4(1.0f);
+    ubo2.model = glm::translate(ubo2.model, {0, 2, 0});
+    ubo2.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo2.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 50.0f);
+    ubo2.proj[1][1] *= -1;
 
-    if (glfwGetKey(window, GLFW_KEY_A)) {
-        pos += 0.002;
-        ubo.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 0.0f), glm::vec3(0.0, 0.0f, pos), glm::vec3(0.0f, 0.0f, 1.0f));
-    }
-    memcpy(pResources->uboPtr, &ubo, sizeof(ubo));
+    ubos.emplace_back(ubo);
+    ubos.emplace_back(ubo2);
+    vk::DeviceSize uboSize = sizeof(ubos[0]) * ubos.size();
+    memcpy(pResources->uboPtr, ubos.data(), uboSize);
 
     commandBuffer.setScissor(0, scissor);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
     //commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
     commandBuffer.drawIndexed(pResources->cube.indicesCount, 1, 0, 0, 0);
     //commandBuffer.endRenderPass();
-    commandBuffer.bindVertexBuffers(0, *pResources->viking.vertexBuffer, offsets);
-    commandBuffer.bindIndexBuffer(*pResources->viking.indexBuffer, 0, vk::IndexType::eUint32);
-    commandBuffer.drawIndexed(pResources->viking.indicesCount, 1, 0, 0, 0);
+    //commandBuffer.bindVertexBuffers(0, *pResources->viking.vertexBuffer, offsets);
+    //commandBuffer.bindIndexBuffer(*pResources->viking.indexBuffer, 0, vk::IndexType::eUint32);
+    //commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
+    //commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 1);
+    //commandBuffer.drawIndexed(pResources->viking.indicesCount, 1, 0, 0, 0);
     commandBuffer.endRendering();
 
     //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
@@ -539,7 +545,7 @@ void Renderer::recreateSwapchain() {
     }
 }
 
-void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image, vk::ImageAspectFlags aspect) {
+void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image, vk::ImageAspectFlags aspect, bool isCubeMap) {
     vk::ImageMemoryBarrier memoryBarrier{};
     memoryBarrier.oldLayout = oldLayout;
     memoryBarrier.newLayout = newLayout;
@@ -550,7 +556,11 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
     memoryBarrier.subresourceRange.baseMipLevel = 0;
     memoryBarrier.subresourceRange.levelCount = 1;
     memoryBarrier.subresourceRange.baseArrayLayer = 0;
-    memoryBarrier.subresourceRange.layerCount = 1;
+    if (isCubeMap)
+        memoryBarrier.subresourceRange.layerCount = 6;
+    else {
+        memoryBarrier.subresourceRange.layerCount = 1;
+    }
 
     vk::PipelineStageFlags sourceStage;
     vk::PipelineStageFlags destinationStage;
@@ -739,7 +749,7 @@ Renderer::~Renderer() {
     m_physicalDevice.clear();
     m_physicalDevices.clear();
     // TODO move all the resources to resource destructor
-    vmaFreeMemory(allocator, pResources->texImageAlloc2);
+    //vmaFreeMemory(allocator, pResources->texImageAlloc2);
     vmaFreeMemory(allocator, pResources->texImageAlloc3);
     vmaFreeMemory(allocator, pResources->depthAlloc);
     vmaDestroyAllocator(allocator);

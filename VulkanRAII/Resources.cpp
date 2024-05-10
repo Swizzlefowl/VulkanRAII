@@ -127,7 +127,9 @@ Resources::Resources(Renderer& renderer)
 }
 
 Resources::~Resources() {
-
+    skyBoxImageView.clear();
+    skyBoxImage.clear();
+    vmaFreeMemory(m_renderer.allocator, skyBoxImageAlloc);
 }
 
 void Resources::createResources() {
@@ -137,7 +139,7 @@ void Resources::createResources() {
     createSyncObjects();
     //vk::DeviceSize vertexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.vertices[0]) * m_renderer.vertices.size());
     //vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
-    vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
+    vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants) * 2);
     //createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
     //createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
     createBuffers(uniformBuffer, uniformBufferMemory, uboSize, vk::BufferUsageFlagBits::eUniformBuffer);
@@ -147,6 +149,15 @@ void Resources::createResources() {
     uboPtr = uniformBufferMemory.mapMemory(0, uboSize);
     //vertexBufferMemory.unmapMemory();
     //indexBufferMemory.unmapMemory();
+
+    //vk::DeviceSize uboSize2 = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
+    // createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
+    // createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
+    //createBuffers(uniformBuffer2, uniformBufferMemory2, uboSize2, vk::BufferUsageFlagBits::eUniformBuffer);
+    // auto vertexPtr = vertexBufferMemory.mapMemory(0, vertexSize);
+    // memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
+    // mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
+    //uboPtr2 = uniformBufferMemory2.mapMemory(0, uboSize);
 }
 
 void Resources::createDescriptorPool() {
@@ -155,7 +166,7 @@ void Resources::createDescriptorPool() {
     poolSize[0].descriptorCount = 1;
 
      poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
-     poolSize[1].descriptorCount = 3;
+     poolSize[1].descriptorCount = 4;
     vk::DescriptorPoolCreateInfo createInfo{};
     createInfo.poolSizeCount = poolSize.size();
     createInfo.pPoolSizes = poolSize.data();
@@ -184,7 +195,7 @@ void Resources::allocateDescriptorSets() {
     vk::DescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = *uniformBuffer;
     bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(Renderer::MeshPushConstants);
+    bufferInfo.range = sizeof(Renderer::MeshPushConstants) * 2;
 
     vk::DescriptorImageInfo imageInfo{};
     imageInfo.imageView = *cube.imageView;
@@ -201,8 +212,13 @@ void Resources::allocateDescriptorSets() {
     imageInfo3.sampler = *texSampler3;
     imageInfo3.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
+    vk::DescriptorImageInfo skyBoxInfo{};
+    skyBoxInfo.imageView = *skyBoxImageView;
+    skyBoxInfo.sampler = *skyBoxSampler;
+    skyBoxInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
     vk::DescriptorImageInfo imageInfos[3] = {imageInfo, imageInfo2, imageInfo3};
-    std::array<vk::WriteDescriptorSet, 2> descriptorWrite{};
+    std::array<vk::WriteDescriptorSet, 3> descriptorWrite{};
     descriptorWrite[0].dstSet = *descriptorSet[0];
     descriptorWrite[0].dstBinding = 0;
     descriptorWrite[0].dstArrayElement = 0;
@@ -218,6 +234,13 @@ void Resources::allocateDescriptorSets() {
     descriptorWrite[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
     descriptorWrite[1].descriptorCount = 3;
     descriptorWrite[1].pImageInfo = imageInfos;
+
+    descriptorWrite[2].dstSet = *descriptorSet[0];
+    descriptorWrite[2].dstBinding = 2;
+    descriptorWrite[2].dstArrayElement = 0;
+    descriptorWrite[2].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    descriptorWrite[2].descriptorCount = 1;
+    descriptorWrite[2].pImageInfo = &skyBoxInfo;
 
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
@@ -383,7 +406,7 @@ vk::raii::Sampler Resources::createSampler() {
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
-
+   
     return m_renderer.m_device.createSampler(samplerInfo);
 }
 
@@ -406,6 +429,144 @@ void Resources::createDepthBuffer() {
     m_renderer.m_queue.waitIdle();
 
 }
+
+void Resources::createSkyBox() {
+    int texWidth{};
+    int texHeight{};
+    int texChannels{};
+    std::vector<stbi_uc*> pixels{};
+    pixels.resize(6);
+    vk::DeviceSize imageSize{};
+    int index{};
+    for (const auto& face : m_renderer.faces) {
+        pixels[index] = stbi_load(face.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        imageSize = static_cast<vk::DeviceSize>(texWidth * texHeight * 4);
+
+        if (!pixels[index])
+            throw std::runtime_error("failed to load image!");
+        index++;
+    }
+
+    vk::raii::Buffer stagingBuffer{nullptr};
+    VmaAllocation allocation{nullptr};
+    stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize * 6, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, 0, allocation);
+    auto ptr = mapPersistentMemory(m_renderer.allocator, allocation, imageSize * 6);
+    const int cubeFaces{6};
+    for (int index{}; index < cubeFaces; index++) {
+        uint64_t src = reinterpret_cast<uint64_t>(ptr) + imageSize * index;
+        memcpy(reinterpret_cast<void*>(src), pixels[index], imageSize);
+    }
+
+    vk::ImageCreateInfo imageInfo{};
+    imageInfo.imageType = vk::ImageType::e2D;
+    imageInfo.extent.width = static_cast<uint32_t>(texWidth);
+    imageInfo.extent.height = static_cast<uint32_t>(texHeight);
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 6;
+    imageInfo.format = vk::Format::eR8G8B8A8Srgb;
+    imageInfo.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+    imageInfo.tiling = vk::ImageTiling::eOptimal;
+    imageInfo.sharingMode = vk::SharingMode::eExclusive;
+    imageInfo.samples = vk::SampleCountFlagBits::e1;
+    imageInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
+    
+    vk::Image image{};
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.flags = 0;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.requiredFlags = VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    
+    auto result = vmaCreateImage(m_renderer.allocator, reinterpret_cast<VkImageCreateInfo*>(&imageInfo), &allocInfo, reinterpret_cast<VkImage*>(&image), &skyBoxImageAlloc, nullptr);
+
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("image creation failed");
+
+    skyBoxImage = {m_renderer.m_device, image};
+
+    for (int index{}; index < cubeFaces; index++) {
+        stbi_image_free(pixels[index]);
+    }
+
+    std::array<vk::BufferImageCopy, 6> copyRegions{};
+    uint32_t i{};
+    for (auto& region : copyRegions) {
+
+        region.bufferOffset = imageSize * i;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = i;
+        region.imageSubresource.layerCount = 1;
+
+        region.imageOffset = vk::Offset3D{0, 0, 0};
+        region.imageExtent = vk::Extent3D{
+            static_cast<uint32_t>(texWidth),
+            static_cast<uint32_t> (texHeight),
+            1};
+        i++;
+    }
+    
+    auto commandBuffer{createSingleTimeCB()};
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    commandBuffer.begin(beginInfo);
+    m_renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, *skyBoxImage, vk::ImageAspectFlagBits::eColor, true);
+    commandBuffer.copyBufferToImage(*stagingBuffer, *skyBoxImage, vk::ImageLayout::eTransferDstOptimal, copyRegions);
+    m_renderer.transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, commandBuffer, *skyBoxImage, vk::ImageAspectFlagBits::eColor, true);
+    commandBuffer.end();
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &*commandBuffer;
+    m_renderer.m_queue.submit(submitInfo);
+    m_renderer.m_device.waitIdle();
+
+    vk::ImageViewCreateInfo createInfo{};
+    createInfo.image = image;
+    createInfo.viewType = vk::ImageViewType::eCube;
+    createInfo.format = vk::Format::eR8G8B8A8Srgb;
+
+    vk::ComponentMapping mappings{
+        vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
+        vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity};
+    createInfo.components = mappings;
+
+    // base	MipmapLevel = 0, levelcount = 1, baseArrayLayer = 0, layerCount
+    // =
+    // 1
+    vk::ImageSubresourceRange imageSubResource{vk::ImageAspectFlagBits::eColor,
+        0, 1, 0, 6};
+    createInfo.subresourceRange = imageSubResource;
+    skyBoxImageView = m_renderer.m_device.createImageView(createInfo);
+
+    vk::PhysicalDeviceProperties deviceProperties = m_renderer.m_physicalDevice.getProperties();
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = vk::Filter::eLinear;
+    samplerInfo.minFilter = vk::Filter::eLinear;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = deviceProperties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eAlways;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+    
+    skyBoxSampler = m_renderer.m_device.createSampler(samplerInfo);
+    stagingBuffer.clear();
+    vmaUnmapMemory(m_renderer.allocator, allocation);
+    vmaFreeMemory(m_renderer.allocator, allocation);
+}
+
 
 void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices) {
     Assimp::Importer importer{};

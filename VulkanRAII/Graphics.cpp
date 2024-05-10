@@ -7,7 +7,7 @@ Graphics::Graphics(Renderer& renderer)
 }
 
 void Graphics::createDescriptorLayout() {
-    std::array<vk::DescriptorSetLayoutBinding, 2> bindings{};
+    std::array<vk::DescriptorSetLayoutBinding, 3> bindings{};
     vk::DescriptorSetLayoutCreateInfo createInfo{};
 
 
@@ -23,6 +23,11 @@ void Graphics::createDescriptorLayout() {
     bindings[1].stageFlags = vk::ShaderStageFlagBits::eFragment;
     bindings[1].pImmutableSamplers = nullptr;
 
+    bindings[2].binding = 2;
+    bindings[2].descriptorCount = 1;
+    bindings[2].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    bindings[2].stageFlags = vk::ShaderStageFlagBits::eFragment;
+    bindings[2].pImmutableSamplers = nullptr;
     createInfo.bindingCount = bindings.size();
     createInfo.pBindings = bindings.data();
 
@@ -129,18 +134,22 @@ void Graphics::createGraphicsPipeline() {
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    vk::PushConstantRange pushConstant{};
-    pushConstant.offset = 0;
-    pushConstant.size = sizeof(int);
-    pushConstant.stageFlags = vk::ShaderStageFlagBits::eFragment;
-  
+    std::array<vk::PushConstantRange, 2> pushConstant{};
+    pushConstant[0].offset = 0;
+    pushConstant[0].size = sizeof(int);
+    pushConstant[0].stageFlags = vk::ShaderStageFlagBits::eFragment;
+
+    pushConstant[1].offset = sizeof(int);
+    pushConstant[1].size = sizeof(int);
+    pushConstant[1].stageFlags = vk::ShaderStageFlagBits::eVertex;
+    
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &(*descriptorSetLayout);
     //pipelineLayoutInfo.pushConstantRangeCount = 0;
     //pipelineLayoutInfo.pPushConstantRanges = nullptr;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+    pipelineLayoutInfo.pushConstantRangeCount = pushConstant.size();
+    pipelineLayoutInfo.pPushConstantRanges = pushConstant.data();
 
     try {
         pipelineLayout = m_renderer.m_device.createPipelineLayout(pipelineLayoutInfo);
