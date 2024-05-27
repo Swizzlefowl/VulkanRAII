@@ -114,6 +114,12 @@
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.275.0\Lib;C:\Users\Arbaz\Documents\Visual Studio 2022\libraries\glfw-3.3.8.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command> ./shader_compiler.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>compile shaders</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -135,6 +141,12 @@
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.275.0\Lib;C:\Users\Arbaz\Documents\Visual Studio 2022\libraries\glfw-3.3.8.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command> ./shader_compiler.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>compile shaders</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Graphics.cpp" />
@@ -156,6 +168,8 @@
     <None Include="shader.frag" />
     <None Include="shader.vert" />
     <None Include="shader_compiler.bat" />
+    <None Include="skybox.frag" />
+    <None Include="skybox.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

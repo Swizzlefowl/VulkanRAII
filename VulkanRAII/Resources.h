@@ -61,6 +61,7 @@ class Resources {
     VmaAllocation texImageAlloc3{nullptr};
     vk::raii::ImageView texImageView3{nullptr};
     vk::raii::Sampler texSampler3{nullptr};
+    std::vector<vk::raii::DescriptorSet> skyDescriptorSet{};
     vk::raii::Image skyBoxImage{nullptr};
     VmaAllocation skyBoxImageAlloc{nullptr};
     vk::raii::ImageView skyBoxImageView{nullptr};
@@ -68,6 +69,9 @@ class Resources {
     void* colorPtr{nullptr};
     void* uboPtr{nullptr};
     void* uboPtr2{nullptr};
+    std::vector<glm::vec3> instances{};
+    vk::raii::Buffer instanceBuffer{nullptr};
+    VmaAllocation instanceAlloc{nullptr};
 
     Resources(Renderer& renderer);
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
@@ -77,6 +81,7 @@ class Resources {
     void createResources();
     void createDescriptorPool();
     void allocateDescriptorSets();
+    void allocateSkyDescriptorSet();
     vk::raii::Buffer createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VkMemoryPropertyFlags propertyFlags, VmaAllocation& allocation);
     void mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size);
     void* mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size);
@@ -92,4 +97,5 @@ class Resources {
     void createMesh(const std::string& Modelname, const std::string& textureName, Mesh& mesh);
     void copyBuffer(vk::raii::CommandBuffer& cb, const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, vk::DeviceSize size);
     void createSkyBox();
+    void createInstanceData();
 };

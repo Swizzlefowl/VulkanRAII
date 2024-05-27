@@ -129,6 +129,7 @@ Resources::Resources(Renderer& renderer)
 Resources::~Resources() {
     skyBoxImageView.clear();
     skyBoxImage.clear();
+    vmaFreeMemory(m_renderer.allocator, instanceAlloc);
     vmaFreeMemory(m_renderer.allocator, skyBoxImageAlloc);
 }
 
@@ -137,40 +138,25 @@ void Resources::createResources() {
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
-    //vk::DeviceSize vertexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.vertices[0]) * m_renderer.vertices.size());
-    //vk::DeviceSize indexSize = static_cast<vk::DeviceSize>(sizeof(m_renderer.indices[0]) * m_renderer.indices.size());
     vk::DeviceSize uboSize = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants) * 2);
-    //createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
-    //createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
     createBuffers(uniformBuffer, uniformBufferMemory, uboSize, vk::BufferUsageFlagBits::eUniformBuffer);
-    //auto vertexPtr = vertexBufferMemory.mapMemory(0, vertexSize);
-    //memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
-    //mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
     uboPtr = uniformBufferMemory.mapMemory(0, uboSize);
-    //vertexBufferMemory.unmapMemory();
-    //indexBufferMemory.unmapMemory();
-
-    //vk::DeviceSize uboSize2 = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
-    // createBuffers(vertexBuffer, vertexBufferMemory, vertexSize, vk::BufferUsageFlagBits::eVertexBuffer);
-    // createBuffers(indexBuffer, indexBufferMemory, indexSize, vk::BufferUsageFlagBits::eIndexBuffer);
-    //createBuffers(uniformBuffer2, uniformBufferMemory2, uboSize2, vk::BufferUsageFlagBits::eUniformBuffer);
-    // auto vertexPtr = vertexBufferMemory.mapMemory(0, vertexSize);
-    // memcpy(vertexPtr, m_renderer.vertices.data(), vertexSize);
-    // mapMemory(indexBufferMemory, indexSize, m_renderer.indices);
-    //uboPtr2 = uniformBufferMemory2.mapMemory(0, uboSize);
+    vk::DeviceSize uboSize2 = static_cast<vk::DeviceSize>(sizeof(Renderer::MeshPushConstants));
+    createBuffers(uniformBuffer2, uniformBufferMemory2, uboSize2, vk::BufferUsageFlagBits::eUniformBuffer);
+    uboPtr2 = uniformBufferMemory2.mapMemory(0, uboSize2);
 }
 
 void Resources::createDescriptorPool() {
     std::array<vk::DescriptorPoolSize, 2> poolSize{};
     poolSize[0].type = vk::DescriptorType::eUniformBuffer;
-    poolSize[0].descriptorCount = 1;
+    poolSize[0].descriptorCount = 10;
 
      poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
-     poolSize[1].descriptorCount = 4;
+     poolSize[1].descriptorCount = 10;
     vk::DescriptorPoolCreateInfo createInfo{};
     createInfo.poolSizeCount = poolSize.size();
     createInfo.pPoolSizes = poolSize.data();
-    createInfo.maxSets = 1;
+    createInfo.maxSets = 10;
     createInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
 
     try {
@@ -212,13 +198,8 @@ void Resources::allocateDescriptorSets() {
     imageInfo3.sampler = *texSampler3;
     imageInfo3.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-    vk::DescriptorImageInfo skyBoxInfo{};
-    skyBoxInfo.imageView = *skyBoxImageView;
-    skyBoxInfo.sampler = *skyBoxSampler;
-    skyBoxInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-
     vk::DescriptorImageInfo imageInfos[3] = {imageInfo, imageInfo2, imageInfo3};
-    std::array<vk::WriteDescriptorSet, 3> descriptorWrite{};
+    std::array<vk::WriteDescriptorSet, 2> descriptorWrite{};
     descriptorWrite[0].dstSet = *descriptorSet[0];
     descriptorWrite[0].dstBinding = 0;
     descriptorWrite[0].dstArrayElement = 0;
@@ -234,13 +215,6 @@ void Resources::allocateDescriptorSets() {
     descriptorWrite[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
     descriptorWrite[1].descriptorCount = 3;
     descriptorWrite[1].pImageInfo = imageInfos;
-
-    descriptorWrite[2].dstSet = *descriptorSet[0];
-    descriptorWrite[2].dstBinding = 2;
-    descriptorWrite[2].dstArrayElement = 0;
-    descriptorWrite[2].descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    descriptorWrite[2].descriptorCount = 1;
-    descriptorWrite[2].pImageInfo = &skyBoxInfo;
 
     m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
@@ -282,6 +256,46 @@ void* Resources::mapPersistentMemory(const VmaAllocator& allocator, const VmaAll
     if (result != VkResult::VK_SUCCESS)
         throw std::runtime_error("persistent map memory failed");
     return ptr;
+}
+
+void Resources::allocateSkyDescriptorSet() {
+    vk::DescriptorSetAllocateInfo allocateInfo{};
+    allocateInfo.descriptorSetCount = 1;
+    allocateInfo.descriptorPool = *descriptorPool;
+    allocateInfo.pSetLayouts = &*m_renderer.pGraphics->skyDescriptorSetLayout;
+
+    try {
+        skyDescriptorSet = m_renderer.m_device.allocateDescriptorSets(allocateInfo);
+    } catch (vk::Error& err) {
+        std::cout << err.what();
+    }
+   
+    vk::DescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = *uniformBuffer2;
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(Renderer::MeshPushConstants);
+
+    vk::DescriptorImageInfo skyBoxInfo{};
+    skyBoxInfo.imageView = *skyBoxImageView;
+    skyBoxInfo.sampler = *skyBoxSampler;
+    skyBoxInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    std::array<vk::WriteDescriptorSet, 2> descriptorWrite{};
+    descriptorWrite[0].dstSet = *skyDescriptorSet[0];
+    descriptorWrite[0].dstBinding = 0;
+    descriptorWrite[0].dstArrayElement = 0;
+    descriptorWrite[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+    descriptorWrite[0].descriptorCount = 1;
+    descriptorWrite[0].pBufferInfo = &bufferInfo;
+
+    descriptorWrite[1].dstSet = *skyDescriptorSet[0];
+    descriptorWrite[1].dstBinding = 1;
+    descriptorWrite[1].dstArrayElement = 0;
+    descriptorWrite[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    descriptorWrite[1].descriptorCount = 1;
+    descriptorWrite[1].pImageInfo = &skyBoxInfo;
+
+    m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
 }
 
 void Resources::loadImage(const std::string& imageName, vk::raii::Image& image, vk::raii::ImageView& imageView, VmaAllocation& imageAlloc, vk::raii::Sampler& sampler) {
@@ -567,6 +581,23 @@ void Resources::createSkyBox() {
     vmaFreeMemory(m_renderer.allocator, allocation);
 }
 
+void Resources::createInstanceData() {
+    std::default_random_engine rndGenerator((unsigned)time(nullptr));
+    std::uniform_real_distribution<float> uniformDist(-50, 50);
+    for (int index{0}; index < 500; index++) {
+        glm::vec3 instance{};
+        instance.r = uniformDist(rndGenerator);
+        instance.g = uniformDist(rndGenerator);
+        instance.b = 0;
+        instances.push_back(instance);
+    }
+
+    vk::DeviceSize size{sizeof(instances[0]) * instances.size()};
+    createVertexBuffer(m_renderer.allocator, instanceBuffer, 
+        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, 
+        instanceAlloc, instances.data(), 
+        size);
+}
 
 void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices) {
     Assimp::Importer importer{};

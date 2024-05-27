@@ -55,6 +55,11 @@ class Renderer {
         "front.jpg",
         "back.jpg"};
 
+    std::vector<std::string> texNames{
+        "viking_room.png",
+        "statue.jpg"
+        "kenergy.jpg"};
+
     vk::raii::Context m_context{};
     vk::raii::Instance m_instance{nullptr};
     vk::raii::PhysicalDevices m_physicalDevices{nullptr};

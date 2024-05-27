@@ -64,5 +64,11 @@
     <None Include="shader_compiler.bat">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="skybox.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="skybox.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

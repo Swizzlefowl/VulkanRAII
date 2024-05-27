@@ -13,9 +13,14 @@ class Graphics {
     vk::raii::DescriptorSetLayout descriptorSetLayout{nullptr};
     vk::raii::PipelineLayout pipelineLayout{nullptr};
     vk::raii::Pipeline graphicsPipeline{nullptr};
+    vk::raii::DescriptorSetLayout skyDescriptorSetLayout{nullptr};
+    vk::raii::PipelineLayout skyPipelineLayout{nullptr};
+    vk::raii::Pipeline skyGraphicsPipeline{nullptr};
 
     Graphics(Renderer& renderer);
     void createDescriptorLayout();
     void createGraphicsPipeline();
+    void createSkyBoxPipeline();
+    void createSkyBoxDescriptorLayout();
     void createRenderPass();
 };

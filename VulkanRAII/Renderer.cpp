@@ -40,15 +40,19 @@ void Renderer::initVulkan() {
     pGraphics->createRenderPass();
     pGraphics->createDescriptorLayout();
     pGraphics->createGraphicsPipeline();
+    pGraphics->createSkyBoxDescriptorLayout();
+    pGraphics->createSkyBoxPipeline();
     pResources->createResources();
     pResources->createDescriptorPool();
     pResources->createMesh("cube.obj", "statue.jpg", pResources->cube);
     pResources->createMesh("viking_room.obj", "viking_room.png", pResources->viking);
     pResources->createSkyBox();
+    pResources->createInstanceData();
     //pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
     //pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
     pResources->loadImage("kenergy.jpg", pResources->texImage3, pResources->texImageView3, pResources->texImageAlloc3, pResources->texSampler3);
     pResources->allocateDescriptorSets();
+    pResources->allocateSkyDescriptorSet();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
     pResources->createBlitFrameBuffer();
@@ -205,8 +209,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    std::vector<vk::Buffer> buffers{*pResources->vertexBuffer};
-    std::vector<vk::DeviceSize> offsets{0};
+    std::vector<vk::Buffer> buffers{*pResources->cube.vertexBuffer, *pResources->instanceBuffer};
+    std::vector<vk::DeviceSize> offsets{0, 0};
     
     vk::RenderingInfo rInfo{};
     vk::RenderingAttachmentInfo aInfo{};
@@ -233,9 +237,6 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     rInfo.renderArea = vk::Rect2D{
         {0, 0}, pEngine->swapChainExtent};
     
-    commandBuffer.bindVertexBuffers(0, *pResources->cube.vertexBuffer, offsets);
-    commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
-
     transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
     //transitionImageLayout(vk::ImageLayout::eDepthAttachmentOptimal, vk::ImageLayout::eGeneral, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
 
@@ -257,9 +258,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     //transitionImageLayout(vk::ImageLayout::eGeneral, vk::ImageLayout::eDepthAttachmentOptimal, commandBuffer, *pResources->depthImage, vk::ImageAspectFlagBits::eDepth);
     commandBuffer.beginRendering(rInfo);
     //commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
-    commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
-    commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 0);
+    //commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
+    //commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 0);
 
     vk::Viewport viewport{};
     viewport.x = 0.0f;
@@ -282,15 +282,16 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     MeshPushConstants ubo{};
     ubo.model = glm::mat4(1.0f);
     ubo.view = glm::mat4(1.0f);
-    ubo.view = glm::lookAt(glm::vec3(0.2f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
     
     MeshPushConstants ubo2{};
     ubo2.model = glm::mat4(1.0f);
+    ubo2.model = glm::scale(glm::mat4(1.0f), glm::vec3{0.5, 0.5, 0.5});
     ubo2.model = glm::translate(ubo2.model, {0, 2, 0});
-    ubo2.view = glm::lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo2.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 50.0f);
+    ubo2.view = glm::lookAt(glm::vec3(5.0f, -8.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo2.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 100.0f);
     ubo2.proj[1][1] *= -1;
     
     static float xPos{};
@@ -302,25 +303,31 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
         xPos += 0.002;
     if (glfwGetKey(window, GLFW_KEY_D))
         xPos -= 0.002;
-    std::cout << "Y pos is: " << pos << '\n';
-    std::cout << "X pos is: " << xPos << '\n';
     
-    ubo.view = glm::lookAt(glm::vec3(0.5, 0.0f, 0.0f), glm::vec3(0, pos, xPos), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.view = glm::lookAt(glm::vec3(0.5, 0.0f, 0.0), glm::vec3(0, pos, xPos), glm::vec3(0.0f, 1.0f, 0.0f));
     ubos.emplace_back(ubo);
     ubos.emplace_back(ubo2);
     vk::DeviceSize uboSize = sizeof(ubos[0]) * ubos.size();
+    memcpy(pResources->uboPtr2, &ubo, sizeof(ubo));
     memcpy(pResources->uboPtr, ubos.data(), uboSize);
 
     commandBuffer.setScissor(0, scissor);
+   
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->graphicsPipeline);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
-    //commandBuffer.pushConstants<MeshPushConstants>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshes);
+    
+    commandBuffer.bindVertexBuffers(0, buffers, offsets);
+    commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
+    commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
+    commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 1);
+    commandBuffer.drawIndexed(pResources->cube.indicesCount, pResources->instances.size(), 0, 0, 0);
+
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->skyGraphicsPipeline);
+    commandBuffer.bindVertexBuffers(0, *pResources->cube.vertexBuffer, {0});
+    commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->skyPipelineLayout, 0, *pResources->skyDescriptorSet[0], nullptr);
     commandBuffer.drawIndexed(pResources->cube.indicesCount, 1, 0, 0, 0);
-    //commandBuffer.endRenderPass();
-    //commandBuffer.bindVertexBuffers(0, *pResources->viking.vertexBuffer, offsets);
-    //commandBuffer.bindIndexBuffer(*pResources->viking.indexBuffer, 0, vk::IndexType::eUint32);
-    //commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
-    //commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 1);
-    //commandBuffer.drawIndexed(pResources->viking.indicesCount, 1, 0, 0, 0);
+
     commandBuffer.endRendering();
 
     //transitionImageLayout(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex]);
