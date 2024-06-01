@@ -54,6 +54,7 @@ class Resources {
     vk::raii::Framebuffer blitFramebuffer{nullptr};
     Mesh cube;
     Mesh viking;
+    Mesh atlasCube;
     VmaAllocation depthAlloc{nullptr};
     vk::raii::Image depthImage{nullptr};
     vk::raii::ImageView depthImageView{nullptr};
@@ -91,10 +92,10 @@ class Resources {
     vk::raii::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags);
     vk::raii::Sampler createSampler();
     void createDepthBuffer();
-    void loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices);
+    void loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices, bool customUV = false);
     void createVertexBuffer(const VmaAllocator& allocator, vk::raii::Buffer& buffer, vk::BufferUsageFlags usage, VmaAllocation& alloc, void* src, vk::DeviceSize size);
     void copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height);
-    void createMesh(const std::string& Modelname, const std::string& textureName, Mesh& mesh);
+    void createMesh(const std::string& Modelname, const std::string& textureName, Mesh& mesh, bool customUV = false);
     void copyBuffer(vk::raii::CommandBuffer& cb, const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, vk::DeviceSize size);
     void createSkyBox();
     void createInstanceData();

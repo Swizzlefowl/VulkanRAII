@@ -123,7 +123,8 @@ void Resources::mapMemory(vk::raii::DeviceMemory& memory, vk::DeviceSize size, c
 Resources::Resources(Renderer& renderer)
     : m_renderer{renderer}
     , cube{renderer.allocator}
-    , viking{renderer.allocator} {
+    , viking{renderer.allocator}
+    , atlasCube{renderer.allocator} {
 }
 
 Resources::~Resources() {
@@ -184,8 +185,8 @@ void Resources::allocateDescriptorSets() {
     bufferInfo.range = sizeof(Renderer::MeshPushConstants) * 2;
 
     vk::DescriptorImageInfo imageInfo{};
-    imageInfo.imageView = *cube.imageView;
-    imageInfo.sampler = *cube.sampler;
+    imageInfo.imageView = *atlasCube.imageView;
+    imageInfo.sampler = *atlasCube.sampler;
     imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     vk::DescriptorImageInfo imageInfo2{};
@@ -584,11 +585,19 @@ void Resources::createSkyBox() {
 void Resources::createInstanceData() {
     std::default_random_engine rndGenerator((unsigned)time(nullptr));
     std::uniform_real_distribution<float> uniformDist(-50, 50);
+    int yIndex{};
+    int xIndex{};
     for (int index{0}; index < 500; index++) {
         glm::vec3 instance{};
-        instance.r = uniformDist(rndGenerator);
-        instance.g = uniformDist(rndGenerator);
+        if (index % 10 == 0) {
+            yIndex++;
+            xIndex = 0;
+        } 
+
+        instance.r = xIndex * 2 * -1;
+        instance.g = yIndex * 2 * -1;
         instance.b = 0;
+        xIndex++;
         instances.push_back(instance);
     }
 
@@ -599,15 +608,17 @@ void Resources::createInstanceData() {
         size);
 }
 
-void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices) {
+void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices, bool customUV) {
     Assimp::Importer importer{};
     const aiScene* scene{nullptr};
-    scene = importer.ReadFile(name.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    scene = importer.ReadFile(name.c_str(), aiProcess_Triangulate );
+    // | aiProcess_JoinIdenticalVertices
     
     if (!scene)
         throw std::runtime_error("you done fucked up");
     std::cout << scene->mNumMeshes;
     auto mesh = scene->mMeshes[0];
+
     for (size_t index{}; index < scene->mMeshes[0]->mNumVertices; index++) {
         Resources::Vertex vertice{};
 
@@ -619,10 +630,16 @@ void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex
         vertice.color.g = 1.0;
         vertice.color.b = 1.0;
 
-        vertice.texCoord.r = mesh->mTextureCoords[0][index].x;
-        vertice.texCoord.g = mesh->mTextureCoords[0][index].y;
+        if (!customUV) {
+            vertice.texCoord.r = mesh->mTextureCoords[0][index].x;
+            vertice.texCoord.g = mesh->mTextureCoords[0][index].y;
+        } else {
+            vertice.texCoord.r = ((3 % 7) + mesh->mTextureCoords[0][index].x) / 7.0f;
+            vertice.texCoord.g = ((4 % 7) + mesh->mTextureCoords[0][index].y) / 7.0f;
+        }
         vertices.emplace_back(vertice);
     }
+
 
     for (int index{}; index < mesh->mNumFaces; index++) {
         const auto& face = mesh->mFaces[index];
@@ -679,10 +696,10 @@ void Resources::copyBufferToImage(const vk::raii::CommandBuffer& commandBuffer, 
     
 }
 
-void Resources::createMesh(const std::string& Modelname, const std::string& textureName, Mesh& mesh) {
+void Resources::createMesh(const std::string& Modelname, const std::string& textureName, Mesh& mesh, bool customUV) {
     std::vector<Resources::Vertex> vertices{};
     std::vector<std::uint32_t> indices{};
-    loadModel(Modelname, vertices, indices);
+    loadModel(Modelname, vertices, indices, customUV);
     vk::DeviceSize vertexSize{sizeof(vertices[0]) * vertices.size()};
     createVertexBuffer(m_renderer.allocator, mesh.vertexBuffer, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, mesh.vertexAlloc, vertices.data(), vertexSize);
     vk::DeviceSize indexSize{sizeof(indices[0]) * indices.size()};

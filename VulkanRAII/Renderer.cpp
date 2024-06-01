@@ -47,6 +47,7 @@ void Renderer::initVulkan() {
     pResources->createMesh("cube.obj", "statue.jpg", pResources->cube);
     pResources->createMesh("viking_room.obj", "viking_room.png", pResources->viking);
     pResources->createSkyBox();
+    pResources->createMesh("cube.obj", "LGOsa.jpg", pResources->atlasCube, true);
     pResources->createInstanceData();
     //pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
     //pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
@@ -209,7 +210,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    std::vector<vk::Buffer> buffers{*pResources->cube.vertexBuffer, *pResources->instanceBuffer};
+    std::vector<vk::Buffer> buffers{*pResources->atlasCube.vertexBuffer, *pResources->instanceBuffer};
     std::vector<vk::DeviceSize> offsets{0, 0};
     
     vk::RenderingInfo rInfo{};
@@ -289,8 +290,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     MeshPushConstants ubo2{};
     ubo2.model = glm::mat4(1.0f);
     ubo2.model = glm::scale(glm::mat4(1.0f), glm::vec3{0.5, 0.5, 0.5});
-    ubo2.model = glm::translate(ubo2.model, {0, 2, 0});
-    ubo2.view = glm::lookAt(glm::vec3(5.0f, -8.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo2.model = glm::translate(ubo2.model, {0, 0, -4});
+    ubo2.view = glm::lookAt(glm::vec3(5.0f, -8.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo2.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 100.0f);
     ubo2.proj[1][1] *= -1;
     
@@ -305,6 +306,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
         xPos -= 0.002;
     
     ubo.view = glm::lookAt(glm::vec3(0.5, 0.0f, 0.0), glm::vec3(0, pos, xPos), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo2.view = glm::lookAt(glm::vec3(-2.0f, 2.0f, 1.5f), glm::vec3(xPos *10, 0, pos * 10), glm::vec3(0.0f, 0.0f, 1.0f));
     ubos.emplace_back(ubo);
     ubos.emplace_back(ubo2);
     vk::DeviceSize uboSize = sizeof(ubos[0]) * ubos.size();
@@ -317,16 +319,18 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->pipelineLayout, 0, *pResources->descriptorSet[0], nullptr);
     
     commandBuffer.bindVertexBuffers(0, buffers, offsets);
-    commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
+    //commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
     commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
     commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 1);
-    commandBuffer.drawIndexed(pResources->cube.indicesCount, pResources->instances.size(), 0, 0, 0);
+    //commandBuffer.drawIndexed(pResources->cube.indicesCount, pResources->instances.size(), 0, 0, 0);
+    commandBuffer.draw(pResources->atlasCube.verticesCount, pResources->instances.size(), 0, 0);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->skyGraphicsPipeline);
     commandBuffer.bindVertexBuffers(0, *pResources->cube.vertexBuffer, {0});
-    commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
+    //commandBuffer.bindIndexBuffer(*pResources->cube.indexBuffer, 0, vk::IndexType::eUint32);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pGraphics->skyPipelineLayout, 0, *pResources->skyDescriptorSet[0], nullptr);
-    commandBuffer.drawIndexed(pResources->cube.indicesCount, 1, 0, 0, 0);
+    //commandBuffer.drawIndexed(pResources->cube.indicesCount, 1, 0, 0, 0);
+    commandBuffer.draw(pResources->cube.verticesCount, 1, 0, 0);
 
     commandBuffer.endRendering();
 
