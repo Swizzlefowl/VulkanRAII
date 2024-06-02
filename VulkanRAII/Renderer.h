@@ -25,8 +25,8 @@ class Renderer {
     friend class Graphics;
     friend class Resources;
     GLFWwindow* window;
-    const int width{2400};
-    const int height{1400};
+    const int width{720};
+    const int height{640};
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
 
@@ -107,6 +107,7 @@ class Renderer {
     void createAllocator();
     void mainLoop();
     void recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex);
+    void recordComputeCB(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex);
     void createRandomNumberGenerator();
     void changeColor(Colors color);
     void drawFrame();

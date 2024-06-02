@@ -12,7 +12,7 @@ PresentationEngine::SwapChainCapablities PresentationEngine::getSwapChainCapabil
 
 vk::SurfaceFormatKHR PresentationEngine::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> availableFormats) {
     for (const auto& availableFormat : availableFormats)
-        if (availableFormat.format == vk::Format::eB8G8R8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+        if (availableFormat.format == vk::Format::eR8G8B8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
             return availableFormat;
     return availableFormats[0];
 }
@@ -141,7 +141,9 @@ void PresentationEngine::createBlitImage() {
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
+    //imageInfo.format = vk::Format::eR8G8B8A8Unorm;
     imageInfo.format = swapChainImagesFormat;
+    //imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eStorage;
     imageInfo.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
     imageInfo.initialLayout = vk::ImageLayout::eUndefined;
     imageInfo.tiling = vk::ImageTiling::eOptimal;
@@ -164,6 +166,7 @@ void PresentationEngine::createBlitImage() {
 void PresentationEngine::createBlitImageView() {
     vk::ImageViewCreateInfo createInfo{};
     createInfo.image = *blitImage;
+    //createInfo.format = vk::Format::eR8G8B8A8Unorm;
     createInfo.format = swapChainImagesFormat;
     createInfo.viewType = vk::ImageViewType::e2D;
     vk::ComponentMapping mappings{

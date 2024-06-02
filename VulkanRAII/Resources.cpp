@@ -135,7 +135,7 @@ Resources::~Resources() {
 }
 
 void Resources::createResources() {
-    createframebuffers();
+    //createframebuffers();
     createCommandPools();
     createCommandbuffer();
     createSyncObjects();
@@ -148,12 +148,14 @@ void Resources::createResources() {
 }
 
 void Resources::createDescriptorPool() {
-    std::array<vk::DescriptorPoolSize, 2> poolSize{};
+    std::array<vk::DescriptorPoolSize, 3> poolSize{};
     poolSize[0].type = vk::DescriptorType::eUniformBuffer;
     poolSize[0].descriptorCount = 10;
+    poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
+    poolSize[1].descriptorCount = 10;
+    poolSize[2].type = vk::DescriptorType::eStorageImage;
+    poolSize[2].descriptorCount = 1;
 
-     poolSize[1].type = vk::DescriptorType::eCombinedImageSampler;
-     poolSize[1].descriptorCount = 10;
     vk::DescriptorPoolCreateInfo createInfo{};
     createInfo.poolSizeCount = poolSize.size();
     createInfo.pPoolSizes = poolSize.data();
@@ -445,6 +447,33 @@ void Resources::createDepthBuffer() {
 
 }
 
+void Resources::allocateComputeDescSet() {
+    vk::DescriptorSetAllocateInfo allocateInfo{};
+    allocateInfo.descriptorSetCount = 1;
+    allocateInfo.descriptorPool = *descriptorPool;
+    allocateInfo.pSetLayouts = &*m_renderer.pGraphics->computeDescriptorSetLayout;
+
+    try {
+        computeDescriptorSet = std::move(m_renderer.m_device.allocateDescriptorSets(allocateInfo)[0]);
+    } catch (vk::Error& err) {
+        std::cout << err.what();
+    }
+
+    vk::DescriptorImageInfo imageInfo{};
+    imageInfo.imageView = *m_renderer.pEngine->blitImageViews;
+    imageInfo.imageLayout = vk::ImageLayout::eGeneral;
+
+    std::array<vk::WriteDescriptorSet, 1> descriptorWrite{};
+    descriptorWrite[0].dstSet = *computeDescriptorSet;
+    descriptorWrite[0].dstBinding = 0;
+    descriptorWrite[0].dstArrayElement = 0;
+    descriptorWrite[0].descriptorType = vk::DescriptorType::eStorageImage;
+    descriptorWrite[0].descriptorCount = 1;
+    descriptorWrite[0].pImageInfo = &imageInfo;
+
+    m_renderer.m_device.updateDescriptorSets(descriptorWrite, nullptr);
+}
+
 void Resources::createSkyBox() {
     int texWidth{};
     int texHeight{};
@@ -634,8 +663,8 @@ void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex
             vertice.texCoord.r = mesh->mTextureCoords[0][index].x;
             vertice.texCoord.g = mesh->mTextureCoords[0][index].y;
         } else {
-            vertice.texCoord.r = ((3 % 7) + mesh->mTextureCoords[0][index].x) / 7.0f;
-            vertice.texCoord.g = ((4 % 7) + mesh->mTextureCoords[0][index].y) / 7.0f;
+            vertice.texCoord.r = ((4 % 7) + mesh->mTextureCoords[0][index].x) / 7.0f;
+            vertice.texCoord.g = ((0 % 7) + mesh->mTextureCoords[0][index].y) / 7.0f;
         }
         vertices.emplace_back(vertice);
     }

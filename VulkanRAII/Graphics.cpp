@@ -356,7 +356,56 @@ void Graphics::createSkyBoxDescriptorLayout() {
     } catch (vk::Error& err) {
         std::cout << err.what();
     }
+}
 
+void Graphics::createComputeDescriptorLayout() {
+    std::array<vk::DescriptorSetLayoutBinding, 1> bindings{};
+    vk::DescriptorSetLayoutCreateInfo createInfo{};
+
+    bindings[0].binding = 0;
+    bindings[0].descriptorCount = 1;
+    bindings[0].descriptorType = vk::DescriptorType::eStorageImage;
+    bindings[0].stageFlags = vk::ShaderStageFlagBits::eCompute;
+    bindings[0].pImmutableSamplers = nullptr;
+    createInfo.bindingCount = bindings.size();
+    createInfo.pBindings = bindings.data();
+
+    try {
+        computeDescriptorSetLayout = m_renderer.m_device.createDescriptorSetLayout(createInfo);
+    } catch (vk::Error& err) {
+        std::cout << err.what();
+    }
+}
+
+void Graphics::createComputePipeline() {
+    auto computeShaderModule{createShaderModules("comp.spv")};
+
+    vk::PipelineShaderStageCreateInfo computeShaderStageInfo{};
+    computeShaderStageInfo.stage = vk::ShaderStageFlagBits::eCompute;
+    computeShaderStageInfo.module = *computeShaderModule;
+    computeShaderStageInfo.pName = "main";
+
+    vk::PushConstantRange range{};
+    range.offset = 0;
+    range.size = sizeof(glm::ivec2);
+    range.stageFlags = vk::ShaderStageFlagBits::eCompute;
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &(*computeDescriptorSetLayout);
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &range;
+
+    try {
+        computePipelineLayout = m_renderer.m_device.createPipelineLayout(pipelineLayoutInfo);
+    } catch (vk::SystemError& err) {
+        err.what();
+    }
+
+    vk::ComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.stage = computeShaderStageInfo;
+    pipelineInfo.layout = *computePipelineLayout;
+
+    computePipeline = m_renderer.m_device.createComputePipeline(nullptr, pipelineInfo);
 }
 
 vk::raii::ShaderModule Graphics::createShaderModules(const std::string& fileName) {

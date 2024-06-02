@@ -37,7 +37,6 @@ void Renderer::initVulkan() {
     pEngine->createImageViews();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
-    pGraphics->createRenderPass();
     pGraphics->createDescriptorLayout();
     pGraphics->createGraphicsPipeline();
     pGraphics->createSkyBoxDescriptorLayout();
@@ -49,14 +48,14 @@ void Renderer::initVulkan() {
     pResources->createSkyBox();
     pResources->createMesh("cube.obj", "LGOsa.jpg", pResources->atlasCube, true);
     pResources->createInstanceData();
-    //pResources->loadImage("viking_room.png", pResources->texImage, pResources->texImageView, pResources->texImageAlloc, pResources->texSampler);
-    //pResources->loadImage("statue.jpg", pResources->texImage2, pResources->texImageView2, pResources->texImageAlloc2, pResources->texSampler2);
     pResources->loadImage("kenergy.jpg", pResources->texImage3, pResources->texImageView3, pResources->texImageAlloc3, pResources->texSampler3);
     pResources->allocateDescriptorSets();
     pResources->allocateSkyDescriptorSet();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
-    pResources->createBlitFrameBuffer();
+    pGraphics->createComputeDescriptorLayout();
+    pGraphics->createComputePipeline();
+    //pResources->allocateComputeDescSet();
     pResources->createDepthBuffer();
     listExtensionNames();
 }
@@ -199,7 +198,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     vk::CommandBufferBeginInfo beginInfo{};
     commandBuffer.begin(beginInfo);
 
-    vk::RenderPassBeginInfo renderPassInfo{};
+    /* vk::RenderPassBeginInfo renderPassInfo{};
     renderPassInfo.renderPass = *pGraphics->renderPass;
     renderPassInfo.framebuffer = *pResources->frambebuffers[imageIndex];
     //renderPassInfo.framebuffer = *pResources->blitFramebuffer;
@@ -208,8 +207,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     vk::ClearValue clearColor{{0.0f, 0.0f, 0.0f, 1.0f}};
     renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-
+    renderPassInfo.pClearValues = &clearColor;*/
+    vk::ClearValue clearColor{{0.0f, 0.0f, 0.0f, 1.0f}};
     std::vector<vk::Buffer> buffers{*pResources->atlasCube.vertexBuffer, *pResources->instanceBuffer};
     std::vector<vk::DeviceSize> offsets{0, 0};
     
@@ -382,6 +381,52 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     }
 }
 
+void Renderer::recordComputeCB(vk::raii::CommandBuffer& commandBuffer, uint32_t imageIndex) {
+    vk::CommandBufferBeginInfo beginInfo{};
+    commandBuffer.begin(beginInfo);
+    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pGraphics->computePipeline);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pGraphics->computePipelineLayout, 0, *pResources->computeDescriptorSet, nullptr);
+    commandBuffer.pushConstants<glm::ivec2>(*pGraphics->computePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, glm::ivec2{pEngine->swapChainExtent.width, pEngine->swapChainExtent.height});
+    commandBuffer.dispatch(128, 128, 1);
+    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, commandBuffer, pEngine->swapChainImages[imageIndex], vk::ImageAspectFlagBits::eColor);
+    transitionImageLayout(vk::ImageLayout::eGeneral, vk::ImageLayout::eTransferSrcOptimal, commandBuffer, *pEngine->blitImage, vk::ImageAspectFlagBits::eColor);
+    
+    vk::ImageBlit region{};
+    vk::ImageSubresourceLayers layers{};
+    region.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.srcSubresource.mipLevel = 0;
+    region.srcSubresource.baseArrayLayer = 0;
+    region.srcSubresource.layerCount = 1;
+    // region.src/dstOffsets just define the range of the images
+    // the blit command will copy ie from 0 to the height/width of
+    // the image
+    region.srcOffsets[0].x = 0;
+    region.srcOffsets[0].y = 0;
+    region.srcOffsets[0].z = 0;
+    region.srcOffsets[1].x = pEngine->swapChainExtent.width;
+    region.srcOffsets[1].y = pEngine->swapChainExtent.height;
+    region.srcOffsets[1].z = 1;
+    region.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.dstSubresource.mipLevel = 0;
+    region.dstSubresource.baseArrayLayer = 0;
+    region.dstSubresource.layerCount = 1;
+    region.dstOffsets[0].x = 0;
+    region.dstOffsets[0].y = 0;
+    region.dstOffsets[0].z = 0;
+    region.dstOffsets[1].x = pEngine->swapChainExtent.width;
+    region.dstOffsets[1].y = pEngine->swapChainExtent.height;
+    region.dstOffsets[1].z = 1;
+
+    commandBuffer.blitImage(*pEngine->blitImage, vk::ImageLayout::eTransferSrcOptimal, pEngine->swapChainImages[imageIndex], vk::ImageLayout::eTransferDstOptimal, region, vk::Filter::eLinear);
+    transitionImageLayout(vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR, commandBuffer, pEngine->swapChainImages[imageIndex], vk::ImageAspectFlagBits::eColor);
+    try {
+        commandBuffer.end();
+    } catch (vk::SystemError err) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+}
+
 void Renderer::createRandomNumberGenerator() {
     std::random_device rd{};
     std::seed_seq seq{
@@ -481,7 +526,7 @@ void Renderer::drawFrame() {
 
     pResources->commandBuffer[0].reset();
     recordCommandbuffer(pResources->commandBuffer[0], imageIndex);
-
+    //recordComputeCB(pResources->commandBuffer[0], imageIndex);
     vk::SubmitInfo submitInfo{};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = &(*pResources->imageAvailableSemaphores);
@@ -560,10 +605,12 @@ void Renderer::recreateSwapchain() {
         pEngine->createSwapchain();
         pEngine->createSwapchainImages();
         pEngine->createImageViews();
-        pResources->createframebuffers();
+        //pResources->createframebuffers();
         pEngine->createBlitImage();
         pEngine->createBlitImageView();
         pResources->createDepthBuffer();
+        pResources->computeDescriptorSet.clear();
+        //pResources->allocateComputeDescSet();
     } catch (vk::Error& err) {
         throw("failed to recreate swapchainImage!");
     }
@@ -648,6 +695,18 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+    } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eGeneral) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eShaderWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destinationStage = vk::PipelineStageFlagBits::eComputeShader;
+    } else if (oldLayout == vk::ImageLayout::eGeneral && newLayout == vk::ImageLayout::eTransferSrcOptimal) {
+        memoryBarrier.srcAccessMask = vk::AccessFlagBits::eShaderWrite;
+        memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+
+        sourceStage = vk::PipelineStageFlagBits::eComputeShader;
+        destinationStage = vk::PipelineStageFlagBits::eTransfer;
     }
 
     else {

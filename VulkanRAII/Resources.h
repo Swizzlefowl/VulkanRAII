@@ -63,6 +63,7 @@ class Resources {
     vk::raii::ImageView texImageView3{nullptr};
     vk::raii::Sampler texSampler3{nullptr};
     std::vector<vk::raii::DescriptorSet> skyDescriptorSet{};
+    vk::raii::DescriptorSet computeDescriptorSet{nullptr};
     vk::raii::Image skyBoxImage{nullptr};
     VmaAllocation skyBoxImageAlloc{nullptr};
     vk::raii::ImageView skyBoxImageView{nullptr};
@@ -83,6 +84,7 @@ class Resources {
     void createDescriptorPool();
     void allocateDescriptorSets();
     void allocateSkyDescriptorSet();
+    void allocateComputeDescSet();
     vk::raii::Buffer createBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, VmaAllocationCreateFlags createFlags, VkMemoryPropertyFlags propertyFlags, VmaAllocation& allocation);
     void mapMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, void* src, VkDeviceSize size);
     void* mapPersistentMemory(const VmaAllocator& allocator, const VmaAllocation& allocation, VkDeviceSize size);
