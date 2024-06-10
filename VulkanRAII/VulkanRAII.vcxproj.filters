@@ -36,6 +36,9 @@
     <ClCompile Include="VMA.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="stbImageWrite.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">

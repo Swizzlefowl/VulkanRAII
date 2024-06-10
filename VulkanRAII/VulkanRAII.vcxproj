@@ -155,6 +155,7 @@
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Resources.cpp" />
     <ClCompile Include="stbImage.cpp" />
+    <ClCompile Include="stbImageWrite.cpp" />
     <ClCompile Include="VMA.cpp" />
   </ItemGroup>
   <ItemGroup>

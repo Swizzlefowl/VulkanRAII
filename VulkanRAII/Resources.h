@@ -40,6 +40,7 @@ class Resources {
     vk::raii::Semaphore imageAvailableSemaphores{nullptr};
     vk::raii::Semaphore finishedRenderingSemaphores{nullptr};
     vk::raii::Fence inFlightFences{nullptr};
+    vk::raii::Fence screenCaptureFence{nullptr};
     vk::raii::Buffer vertexBuffer{nullptr};
     vk::raii::DeviceMemory vertexBufferMemory{nullptr};
     vk::raii::Buffer indexBuffer{nullptr};

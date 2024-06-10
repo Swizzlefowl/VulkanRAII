@@ -71,6 +71,7 @@ void Resources::createSyncObjects() {
 
     try {
         inFlightFences = m_renderer.m_device.createFence(fenceInfo);
+        screenCaptureFence = m_renderer.m_device.createFence(vk::FenceCreateInfo{});
         imageAvailableSemaphores = m_renderer.m_device.createSemaphore(semaphoreInfo);
         finishedRenderingSemaphores = m_renderer.m_device.createSemaphore(semaphoreInfo);
     } catch (vk::Error& err) {
@@ -248,7 +249,11 @@ void Resources::mapMemory(const VmaAllocator& allocator, const VmaAllocation& al
         throw std::runtime_error("map memory failed");
 
     memcpy(stagingMappedPtr, src, size);
-    vmaFlushAllocation(m_renderer.allocator, allocation, 0, size);
+    result = vmaFlushAllocation(m_renderer.allocator, allocation, 0, size);
+
+     if (result != VkResult::VK_SUCCESS)
+        throw std::runtime_error("vma flush failed");
+
     vmaUnmapMemory(m_renderer.allocator, allocation);
 }
 

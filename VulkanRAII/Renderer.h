@@ -25,8 +25,8 @@ class Renderer {
     friend class Graphics;
     friend class Resources;
     GLFWwindow* window;
-    const int width{720};
-    const int height{640};
+    const int width{1920};
+    const int height{1080};
     // just a note to myself member variables are destroyed at the reverse order
     //  of declaration
 
@@ -116,6 +116,7 @@ class Renderer {
     void transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::raii::CommandBuffer& commandBuffer, const vk::Image& image, vk::ImageAspectFlags aspect, bool isCubeMap = false);
     Colors checkUserInput();
     int getUserInput();
+    void screenCapture();
 
     // functions for debugging
     std::vector<const char*> getRequiredExtensions();

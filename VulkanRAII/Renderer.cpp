@@ -6,6 +6,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <chrono>
+#include <stb_image.h>
+#include <stb_image_write.h>
 void Renderer::run(PresentationEngine* engine, Graphics* Graphics, Resources* resources) {
     pEngine = engine;
     pGraphics = Graphics;
@@ -53,8 +55,8 @@ void Renderer::initVulkan() {
     pResources->allocateSkyDescriptorSet();
     pEngine->createBlitImage();
     pEngine->createBlitImageView();
-    pGraphics->createComputeDescriptorLayout();
-    pGraphics->createComputePipeline();
+    //pGraphics->createComputeDescriptorLayout();
+    //pGraphics->createComputePipeline();
     //pResources->allocateComputeDescSet();
     pResources->createDepthBuffer();
     listExtensionNames();
@@ -523,7 +525,7 @@ void Renderer::drawFrame() {
     }
 
     m_device.resetFences(*pResources->inFlightFences);
-
+    
     pResources->commandBuffer[0].reset();
     recordCommandbuffer(pResources->commandBuffer[0], imageIndex);
     //recordComputeCB(pResources->commandBuffer[0], imageIndex);
@@ -537,6 +539,9 @@ void Renderer::drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &(*pResources->finishedRenderingSemaphores);
     m_queue.submit(submitInfo, *pResources->inFlightFences);
+
+    if (glfwGetKey(window, GLFW_KEY_P))
+        screenCapture();
 
     vk::PresentInfoKHR presentInfo{};
     presentInfo.waitSemaphoreCount = 1;
@@ -609,7 +614,7 @@ void Renderer::recreateSwapchain() {
         pEngine->createBlitImage();
         pEngine->createBlitImageView();
         pResources->createDepthBuffer();
-        pResources->computeDescriptorSet.clear();
+        //pResources->computeDescriptorSet.clear();
         //pResources->allocateComputeDescSet();
     } catch (vk::Error& err) {
         throw("failed to recreate swapchainImage!");
@@ -641,7 +646,7 @@ void Renderer::transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout 
         memoryBarrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
         memoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
-        sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
     } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR) {
         memoryBarrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
@@ -767,6 +772,62 @@ int Renderer::getUserInput() {
         } else
             return getUserDevice;
     }
+}
+
+void Renderer::screenCapture() {
+    vk::raii::Buffer stagingBuffer{nullptr};
+    VmaAllocation allocation{nullptr};
+    vk::DeviceSize size = pEngine->swapChainExtent.width * pEngine->swapChainExtent.height * 4;
+    stagingBuffer = pResources->createBuffer(vk::BufferUsageFlagBits::eTransferDst, size, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT, 0, allocation);
+    auto src = pResources->mapPersistentMemory(allocator, allocation, size);
+    if (!src)
+        std::cout << "mapping buffer for image failed\n";
+
+    vk::BufferImageCopy bufferCopy{};
+    bufferCopy.bufferRowLength = 0;
+    bufferCopy.bufferOffset = 0;
+    bufferCopy.bufferImageHeight = 0;
+    bufferCopy.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    bufferCopy.imageSubresource.mipLevel = 0;
+    bufferCopy.imageSubresource.baseArrayLayer = 0;
+    bufferCopy.imageSubresource.layerCount = 1;
+    bufferCopy.imageOffset = vk::Offset3D{0, 0, 0};
+    bufferCopy.imageExtent = vk::Extent3D{
+        static_cast<uint32_t>(pEngine->swapChainExtent.width),
+        static_cast<uint32_t>(pEngine->swapChainExtent.height),
+        1};
+
+    vk::MemoryBarrier barrier{};
+    barrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+    barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+    vk::MemoryBarrier barrier2{};
+    barrier2.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+    barrier2.dstAccessMask = vk::AccessFlagBits::eHostRead;
+    auto cb{pResources->createSingleTimeCB()};
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    cb.begin(beginInfo);
+    cb.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eTransfer, {}, barrier, nullptr, nullptr);
+    cb.copyImageToBuffer(*pEngine->blitImage, vk::ImageLayout::eTransferSrcOptimal, *stagingBuffer, bufferCopy);
+    cb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eHost, {}, barrier2, nullptr, nullptr);
+    cb.end();
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &*cb;
+    m_queue.submit(submitInfo, *pResources->screenCaptureFence);
+    vmaInvalidateAllocation(allocator, allocation, 0, size);
+
+    std::vector<stbi_uc*> pixels(size);
+    std::memcpy(pixels.data(), src, size);
+    stbi_write_png("screenshot.png", pEngine->swapChainExtent.width, pEngine->swapChainExtent.height, STBI_rgb_alpha, pixels.data(), pEngine->swapChainExtent.width * 4);
+
+    m_device.waitForFences(*pResources->screenCaptureFence, VK_TRUE, UINT64_MAX);
+    m_device.resetFences(*pResources->screenCaptureFence);
+
+    stagingBuffer.clear();
+    vmaUnmapMemory(allocator, allocation);
+    vmaFreeMemory(allocator, allocation);
 }
 
 void Renderer::pickPhysicalDevice() {
