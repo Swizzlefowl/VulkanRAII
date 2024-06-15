@@ -211,7 +211,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;*/
     vk::ClearValue clearColor{{0.0f, 0.0f, 0.0f, 1.0f}};
-    std::vector<vk::Buffer> buffers{*pResources->atlasCube.vertexBuffer, *pResources->instanceBuffer};
+    std::vector<vk::Buffer> buffers{*pResources->viking.vertexBuffer, *pResources->instanceBuffer};
     std::vector<vk::DeviceSize> offsets{0, 0};
     
     vk::RenderingInfo rInfo{};
@@ -265,7 +265,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
 
     vk::Viewport viewport{};
     viewport.x = 0.0f;
-    viewport.y = 0.0f;
+    viewport.y = 0;
     viewport.width = static_cast<float>(pEngine->swapChainExtent.width);
     viewport.height = static_cast<float>(pEngine->swapChainExtent.height);
     viewport.minDepth = 0.0f;
@@ -290,8 +290,9 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     
     MeshPushConstants ubo2{};
     ubo2.model = glm::mat4(1.0f);
-    ubo2.model = glm::scale(glm::mat4(1.0f), glm::vec3{0.5, 0.5, 0.5});
-    ubo2.model = glm::translate(ubo2.model, {0, 0, -4});
+
+    ubo2.model = glm::scale(glm::mat4(1.0f), glm::vec3{0.9, 0.9, 0.9});
+    ubo2.model = glm::translate(glm::mat4(1.0f), {0, -2.f, -2.0f});
     ubo2.view = glm::lookAt(glm::vec3(5.0f, -8.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo2.proj = glm::perspective(glm::radians(45.0f), pEngine->swapChainExtent.width / (float)pEngine->swapChainExtent.height, 0.1f, 100.0f);
     ubo2.proj[1][1] *= -1;
@@ -306,8 +307,8 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     if (glfwGetKey(window, GLFW_KEY_D))
         xPos -= 0.002;
     
-    ubo.view = glm::lookAt(glm::vec3(0.5, 0.0f, 0.0), glm::vec3(0, pos, xPos), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo2.view = glm::lookAt(glm::vec3(-2.0f, 2.0f, 1.5f), glm::vec3(xPos *10, 0, pos * 10), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(0.2, 0.0f, 0.0f), glm::vec3(0, pos, xPos), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo2.view = glm::lookAt(glm::vec3(-2.0f, 2.0f, 1.5f), glm::vec3(xPos * 5, 0, pos * 5), glm::vec3(0.0f, 0.0f, 1.0f));
     ubos.emplace_back(ubo);
     ubos.emplace_back(ubo2);
     vk::DeviceSize uboSize = sizeof(ubos[0]) * ubos.size();
@@ -324,7 +325,7 @@ void Renderer::recordCommandbuffer(vk::raii::CommandBuffer& commandBuffer, uint3
     commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, index);
     commandBuffer.pushConstants<int>(*pGraphics->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 4, 1);
     //commandBuffer.drawIndexed(pResources->cube.indicesCount, pResources->instances.size(), 0, 0, 0);
-    commandBuffer.draw(pResources->atlasCube.verticesCount, pResources->instances.size(), 0, 0);
+    commandBuffer.draw(pResources->viking.verticesCount, 4, 0, 0);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pGraphics->skyGraphicsPipeline);
     commandBuffer.bindVertexBuffers(0, *pResources->cube.vertexBuffer, {0});
@@ -816,13 +817,13 @@ void Renderer::screenCapture() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &*cb;
     m_queue.submit(submitInfo, *pResources->screenCaptureFence);
+    m_device.waitForFences(*pResources->screenCaptureFence, VK_TRUE, UINT64_MAX);
     vmaInvalidateAllocation(allocator, allocation, 0, size);
 
     std::vector<stbi_uc*> pixels(size);
     std::memcpy(pixels.data(), src, size);
     stbi_write_png("screenshot.png", pEngine->swapChainExtent.width, pEngine->swapChainExtent.height, STBI_rgb_alpha, pixels.data(), pEngine->swapChainExtent.width * 4);
 
-    m_device.waitForFences(*pResources->screenCaptureFence, VK_TRUE, UINT64_MAX);
     m_device.resetFences(*pResources->screenCaptureFence);
 
     stagingBuffer.clear();

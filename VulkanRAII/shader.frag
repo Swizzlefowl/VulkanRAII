@@ -13,5 +13,5 @@ layout( push_constant ) uniform constants
 layout(binding = 1) uniform sampler2D texSampler[3];
 
 void main() {
-    outColor = texture(texSampler[0], texCoord);
+    outColor = texture(texSampler[1], texCoord);
 }

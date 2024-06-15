@@ -34,9 +34,12 @@ void Graphics::createDescriptorLayout() {
 }
 
 void Graphics::createGraphicsPipeline() {
+    using Vert = Renderer::Vertex;
+    
+    Vert vertex{};
     auto vertShaderModule{createShaderModules("vertex.spv")};
     auto fragShaderModule{createShaderModules("fragment.spv")};
-
+ 
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.stage = vk::ShaderStageFlagBits::eVertex;
     vertShaderStageInfo.module = *vertShaderModule;
@@ -72,12 +75,12 @@ void Graphics::createGraphicsPipeline() {
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
-    attributeDescriptions[1].offset = offsetof(Renderer::Vertex, Renderer::Vertex::color);
+    attributeDescriptions[1].offset = offsetof(Renderer::Vertex, color);
 
     attributeDescriptions[2].binding = 0;
     attributeDescriptions[2].location = 2;
     attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
-    attributeDescriptions[2].offset = offsetof(Renderer::Vertex, Renderer::Vertex::texCoord);
+    attributeDescriptions[2].offset = offsetof(Vert, texCoord);
 
     attributeDescriptions[3].binding = 1;
     attributeDescriptions[3].location = 3;

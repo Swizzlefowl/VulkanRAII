@@ -495,7 +495,7 @@ void Resources::createSkyBox() {
             throw std::runtime_error("failed to load image!");
         index++;
     }
-
+ 
     vk::raii::Buffer stagingBuffer{nullptr};
     VmaAllocation allocation{nullptr};
     stagingBuffer = createBuffer(vk::BufferUsageFlagBits::eTransferSrc, imageSize * 6, VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, 0, allocation);
@@ -645,7 +645,7 @@ void Resources::createInstanceData() {
 void Resources::loadModel(const std::string& name, std::vector<Resources::Vertex>& vertices, std::vector<std::uint32_t>& indices, bool customUV) {
     Assimp::Importer importer{};
     const aiScene* scene{nullptr};
-    scene = importer.ReadFile(name.c_str(), aiProcess_Triangulate );
+    scene = importer.ReadFile(name.c_str(), aiProcess_Triangulate | aiProcess_FlipUVs);
     // | aiProcess_JoinIdenticalVertices
     
     if (!scene)
